@@ -19,3 +19,7 @@ Note: If you're using the traditional `GOPATH` mechanism to manage dependencies,
 
 ### Basic Use
   
+In your main.go file create a controller var
+
+`var c gomvc.Controller`
+
