@@ -18,8 +18,10 @@ Note: If you're using the traditional `GOPATH` mechanism to manage dependencies,
 
 
 ### Basic Use
-  
-In your main.go file create a controller variable
+
+`gomvc` requres MySql Server up and running and a database redy to drive your web app
+
+In your `main.go` file create a controller variable
 
 `var c gomvc.Controller`
 
@@ -53,3 +55,5 @@ if err != nil {
 	log.Fatal(err)
 }
 ```
+
+#### AppHandler
