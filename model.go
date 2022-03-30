@@ -159,7 +159,7 @@ func (m *Model) GetAllRecords(limit int64) ([]ResultRow, error) {
 	return rrr, nil
 }
 
-func (m *Model) GetRecords(filters []string, limit int64) ([]ResultRow, error) {
+func (m *Model) GetRecords2(filters []string, limit int64) ([]ResultRow, error) {
 	if m == nil {
 		return []ResultRow{}, errors.New("cannot perform action : GetRecords() on nil model")
 	}
@@ -210,6 +210,7 @@ func (m *Model) Execute(q string) ([]ResultRow, error) {
 	return rrr, nil
 }
 
+//Execute save query
 func (m *Model) Save(vals map[string]string) (bool, error) {
 	if m == nil {
 		return false, errors.New("cannot perform action : Save() on nil model")
@@ -249,6 +250,7 @@ func (m *Model) Save(vals map[string]string) (bool, error) {
 	return false, nil
 }
 
+//Execute update query
 func (m *Model) Update(vals map[string]string, id string) (bool, error) {
 	if m == nil {
 		return false, errors.New("cannot perform action : Update() on nil model")
@@ -284,6 +286,7 @@ func (m *Model) Update(vals map[string]string, id string) (bool, error) {
 	return false, nil
 }
 
+//Execute delete query
 func (m *Model) Delete(id string) (bool, error) {
 	if m == nil {
 		return false, errors.New("cannot perform action : Delete() on nil model")
