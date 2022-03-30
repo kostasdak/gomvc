@@ -159,7 +159,7 @@ func (m *Model) GetAllRecords(limit int64) ([]ResultRow, error) {
 	return rrr, nil
 }
 
-func (m *Model) GetRecords2(filters []string, limit int64) ([]ResultRow, error) {
+func (m *Model) GetRecords(filters []string, limit int64) ([]ResultRow, error) {
 	if m == nil {
 		return []ResultRow{}, errors.New("cannot perform action : GetRecords() on nil model")
 	}
