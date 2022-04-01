@@ -1,0 +1,19 @@
+Title: "Hello"
+UseCache: false
+EnableInfoLog: true
+InfoFile: ""
+ShowStackOnError: true
+ErrorFile: ""
+
+server:
+  port: 8080
+  sessionTimeout: 24
+  sessionSecure: true
+
+database:
+  dbname: "golang"
+  server: "localhost"
+  dbuser: "root"
+  dbpass: ""
+
+

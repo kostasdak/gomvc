@@ -12,13 +12,25 @@ type Model struct {
 	IdField   string
 	TableName string
 	Fields    []string
+	Relations []Relation
 }
 
+//one to one, one to many / many to one, // does it matter
+// join_type -> inner, left, right
+// foreign_key
+// model
 type ResultRow struct {
 	Values   []interface{}
 	pointers []interface{}
 }
 
+type Relation struct {
+	Joint_type  string
+	Foreign_key string
+	Model       Model
+}
+
+//Get current instance
 func (m *Model) Instance() Model {
 	return *m
 }
@@ -52,6 +64,16 @@ func (m *Model) InitModel(db *sql.DB, tableName string, idField string) error {
 	}
 
 	return nil
+}
+
+//add reational table (model)
+func (m *Model) AddRelation(db *sql.DB, tableName string, idField string, foreing_key string, join_type string) {
+	fm := new(Model)
+	fm.InitModel(db, tableName, idField)
+	if m.Relations == nil {
+		m.Relations = make([]Relation, 0)
+	}
+	m.Relations = append(m.Relations, Relation{Joint_type: join_type, Foreign_key: foreing_key, Model: *fm})
 }
 
 //Get last id from Table
