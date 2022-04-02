@@ -180,3 +180,5 @@ func AppHandler(db *sql.DB, cfg *gomvc.AppConfig) http.Handler {
 	return c.Router
 }
 ```
+
+#### More Examples ...
