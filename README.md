@@ -20,10 +20,6 @@ Note: If you're using the traditional `GOPATH` mechanism to manage dependencies,
 
 ### Basic Use
 
-In your `main.go` file create a controller variable
-
-`var c gomvc.Controller`
-
 Edit configuration file, 
 
 ```
@@ -73,8 +69,14 @@ database:
   dbpass: ""
 ```
 
+Create controller variable in your `main.go` file outside the `func main()`
+Controller must be accessible from all functions in main package
 
-Load Configuration file
+`var c gomvc.Controller`
+
+### `func main()`
+
+Load Configuration file 
 
 `cfg := gomvc.LoadConfig("./configs/config.yml")`
 	
