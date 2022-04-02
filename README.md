@@ -26,7 +26,7 @@ In your `main.go` file create a controller variable
 
 Edit configuration file, 
 
-`
+```
 #UseCache true/false 
 #Read files for every request, use this option for debug and development, set to true on production server
 UseCache: false
@@ -71,7 +71,7 @@ database:
 
   #Database password
   dbpass: ""
-`
+```
 
 
 Load Configuration file
