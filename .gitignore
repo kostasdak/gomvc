@@ -1,8 +1,0 @@
-#ignore gitignore
-.gitignore
-
-#ignore exe files
-*.exe
-
-#ignore examples
-examples
