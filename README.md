@@ -47,8 +47,9 @@ $ go get github.com/kostasdak/gomvc
 
 Note: If you're using the traditional `GOPATH` mechanism to manage dependencies, instead of modules, you'll need to `go get` and `import` `github.com/kostasdak/gomvc`
 
-
-### Basic Use
+</br>
+</br>
+## Basic Use
 
 * Edit configuration file, 
 
