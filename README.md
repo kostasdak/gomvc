@@ -268,3 +268,7 @@ func ContactPostForm(w http.ResponseWriter, r *http.Request) {
 #### More Examples ...
 
 TO DO : links to examples_01, 02, 03, ...
+
+[Example 01](https://github.com/kostasdak/go-mvc-example-1) - basic use of gomvc
+
+
