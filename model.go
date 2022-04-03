@@ -7,26 +7,31 @@ import (
 	"time"
 )
 
+const (
+	ModelJoinInner Join = "INNER"
+	ModelJoinLeft  Join = "LEFT"
+	ModelJoinRight Join = "RIGHT"
+)
+
 type Model struct {
 	DB        *sql.DB
 	IdField   string
 	TableName string
 	Fields    []string
+	Labels    map[string]string
 	Relations []Relation
 }
 
-//one to one, one to many / many to one, // does it matter
-// join_type -> inner, left, right
-// foreign_key
-// model
+type Join string
+
 type ResultRow struct {
 	Values   []interface{}
 	pointers []interface{}
 }
 
 type Relation struct {
-	Joint_type  string
 	Foreign_key string
+	Join_type   Join
 	Model       Model
 }
 
@@ -46,6 +51,7 @@ func (m *Model) InitModel(db *sql.DB, tableName string, idField string) error {
 	if err != nil {
 		return err
 	}
+	defer r.Close()
 
 	for r.Next() {
 		var rr ResultRow
@@ -63,17 +69,56 @@ func (m *Model) InitModel(db *sql.DB, tableName string, idField string) error {
 		m.Fields = append(m.Fields, n)
 	}
 
+	if len(m.Relations) > 0 {
+		for _, f := range m.Relations {
+			q = "SHOW COLUMNS FROM " + f.Model.TableName
+			r, err = m.DB.Query(q)
+			if err != nil {
+				return err
+			}
+			defer r.Close()
+
+			for r.Next() {
+				var rr ResultRow
+				rr.Values = make([]interface{}, 6)
+				rr.pointers = make([]interface{}, 6)
+
+				for i := 0; i < 6; i++ {
+					rr.pointers[i] = &rr.Values[i]
+				}
+
+				r.Scan(rr.pointers...)
+
+				b := rr.Values[0].([]byte)
+				n := string(b)
+				m.Fields = append(m.Fields, f.Model.TableName+"."+n)
+			}
+		}
+	}
+
 	return nil
 }
 
+func (m *Model) AssignLabels(labels map[string]string) {
+	m.Labels = labels
+}
+
 //add reational table (model)
-func (m *Model) AddRelation(db *sql.DB, tableName string, idField string, foreing_key string, join_type string) {
+func (m *Model) AddRelation(db *sql.DB, tableName string, idField string, foreing_key string, join_type Join) {
 	fm := new(Model)
 	fm.InitModel(db, tableName, idField)
 	if m.Relations == nil {
 		m.Relations = make([]Relation, 0)
 	}
-	m.Relations = append(m.Relations, Relation{Joint_type: join_type, Foreign_key: foreing_key, Model: *fm})
+	m.Relations = append(m.Relations, Relation{Model: *fm, Foreign_key: foreing_key, Join_type: join_type})
+}
+
+func (m *Model) Label(field string) string {
+	lb, ok := m.Labels[field]
+	if !ok {
+		return "Undefined"
+	}
+	return lb
 }
 
 //Get last id from Table
@@ -142,11 +187,18 @@ func (m *Model) GetAllRecords(limit int64) ([]ResultRow, error) {
 	}
 
 	var q string
+	q = "SELECT * FROM " + m.TableName
+
+	if len(m.Relations) > 0 {
+		for _, j := range m.Relations {
+			q = q + " " + string(j.Join_type) + " JOIN " + j.Model.TableName + " ON " + j.Model.TableName + "." + j.Foreign_key + "=" + m.TableName + "." + m.IdField
+		}
+	}
 
 	if limit > 0 {
-		q = "SELECT * FROM " + m.TableName + " WHERE 1=1 LIMIT " + strconv.FormatInt(int64(limit), 10)
+		q = q + " WHERE 1=1 LIMIT " + strconv.FormatInt(int64(limit), 10)
 	} else {
-		q = "SELECT * FROM " + m.TableName + " WHERE 1=1"
+		q = q + " WHERE 1=1"
 	}
 
 	r, err := m.DB.Query(q)
@@ -159,14 +211,17 @@ func (m *Model) GetAllRecords(limit int64) ([]ResultRow, error) {
 
 	for r.Next() {
 		var rr ResultRow
-		rr.Values = make([]interface{}, len(m.Fields))
-		rr.pointers = make([]interface{}, len(m.Fields))
+		rr.Values = make([]interface{}, len(typ))
+		rr.pointers = make([]interface{}, len(typ))
 
-		for i := range m.Fields {
+		for i := range typ {
 			rr.pointers[i] = &rr.Values[i]
 		}
 
-		r.Scan(rr.pointers...)
+		err = r.Scan(rr.pointers...)
+		if err != nil {
+			return []ResultRow{}, err
+		}
 
 		for i := range rr.Values {
 			val, err := constructField(typ[i], rr.Values[i])
@@ -178,6 +233,7 @@ func (m *Model) GetAllRecords(limit int64) ([]ResultRow, error) {
 
 		rrr = append(rrr, rr)
 	}
+
 	return rrr, nil
 }
 

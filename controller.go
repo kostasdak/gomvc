@@ -17,6 +17,20 @@ import (
 	"github.com/justinas/nosurf"
 )
 
+const (
+	HttpGET  int = 0
+	HttpPOST int = 1
+)
+
+const (
+	ActionView   Action = 0
+	ActionCreate        = 1
+	ActionUpdate        = 2
+	ActionDelete        = 3
+)
+
+type Action int
+
 var Session *scs.SessionManager
 
 type Controller struct {
@@ -32,7 +46,7 @@ type Controller struct {
 
 type controllerOptions struct {
 	next     string
-	action   int
+	action   Action
 	method   int
 	hasTable bool
 }
@@ -42,17 +56,10 @@ type TemplateObject struct {
 	template *template.Template
 }
 
-const (
-	HttpGET  int = 0
-	HttpPOST int = 1
-)
-
-const (
-	ActionView   int = 0
-	ActionCreate int = 1
-	ActionUpdate int = 2
-	ActionDelete int = 3
-)
+type TableObject struct {
+	MainTable     string
+	RelatedTables string
+}
 
 var functions = template.FuncMap{}
 
@@ -96,8 +103,7 @@ func (c *Controller) GetSession() *scs.SessionManager {
 	return Session
 }
 
-//Register route -> responsible for processing requests and generating responses method int
-func (c *Controller) RegisterAction(route string, next string, action int, dbtable string) {
+func (c *Controller) RegisterAction(route string, next string, action Action, model *Model) {
 	if c.Options == nil {
 		c.Options = make(map[string]controllerOptions, 0)
 	}
@@ -106,23 +112,25 @@ func (c *Controller) RegisterAction(route string, next string, action int, dbtab
 	}
 
 	hasTable := false
-	var m Model
-	if len(dbtable) > 0 {
-		err := m.InitModel(c.DB, dbtable, "id")
-		if err != nil {
-			err = errors.New("Error initializing Model for table : " + dbtable + "\n" + err.Error())
-			ServerError(nil, err)
-			log.Fatal()
-			return
-		}
+	cKey := strings.Replace(route, "*", "", 1)
 
-		c.Models[dbtable] = &m
+	if model != nil {
+		if len(model.Fields) == 0 {
+			err := model.InitModel(c.DB, model.TableName, "id")
+			if err != nil {
+				err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
+				ServerError(nil, err)
+				log.Fatal()
+				return
+			}
+		}
+		c.Models[cKey] = model
 
 		hasTable = true
 	}
 
-	key := strings.Replace(route, "*", "", 1)
-	c.Options[key] = controllerOptions{next: next, action: action, hasTable: hasTable}
+	c.Options[cKey] = controllerOptions{next: next, action: action, hasTable: hasTable}
+	//fmt.Println(key)
 
 	if action == ActionView {
 		c.Router.Get(route, c.viewAction)
@@ -140,7 +148,7 @@ func (c *Controller) RegisterAction(route string, next string, action int, dbtab
 }
 
 //Register route -> responsible for processing requests and generating responses
-func (c *Controller) RegisterCustomAction(route string, next string, method int, dbtable string, f http.HandlerFunc) {
+func (c *Controller) RegisterCustomAction(route string, next string, method int, model *Model, f http.HandlerFunc) {
 	if c.Options == nil {
 		c.Options = make(map[string]controllerOptions, 0)
 	}
@@ -149,20 +157,25 @@ func (c *Controller) RegisterCustomAction(route string, next string, method int,
 	}
 
 	hasTable := false
-	var m Model
-	if len(dbtable) > 0 {
-		err := m.InitModel(c.DB, dbtable, "id")
-		if err != nil {
-			err = errors.New("Error initializing Model for table : " + dbtable + "\n" + err.Error())
-			ServerError(nil, err)
-			log.Fatal()
-			return
+	cKey := strings.Replace(route, "*", "", 1)
+
+	if model != nil {
+		if len(model.Fields) == 0 {
+			err := model.InitModel(c.DB, model.TableName, "id")
+			if err != nil {
+				err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
+				ServerError(nil, err)
+				log.Fatal()
+				return
+			}
 		}
-		c.Models[dbtable] = &m
+
+		c.Models[cKey] = model
+
 		hasTable = true
 	}
-	key := strings.Replace(route, "*", "", 1)
-	c.Options[key] = controllerOptions{next: next, action: 0, method: method, hasTable: hasTable}
+
+	c.Options[cKey] = controllerOptions{next: next, action: 0, method: method, hasTable: hasTable}
 
 	if method == HttpGET {
 		c.Router.Get(route, f)
@@ -293,20 +306,23 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	if cOptions.hasTable {
 		if len(params) == 0 {
 			//load all models
-			rr, err = c.Models[cntrlr].GetAllRecords(0)
+			rr, err = c.Models[baseUrl].GetAllRecords(0)
 			if err != nil {
 				ServerError(w, err)
 				return
 			}
+			//related result ?
+
 		} else {
 			//load single model
 			id, _ := strconv.ParseInt(params[0], 10, 64)
 			rr = make([]ResultRow, 1)
-			rr[0], err = c.Models[cntrlr].GetRecordByPK(id)
+			rr[0], err = c.Models[baseUrl].GetRecordByPK(id)
 			if err != nil {
 				ServerError(w, err)
 				return
 			}
+			//related result ?
 		}
 	}
 
@@ -350,7 +366,7 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 
 	var td TemplateData
 	td.Result = rr
-	m, ok := c.Models[cntrlr]
+	m, ok := c.Models[baseUrl]
 	if ok {
 		td.Model = m.Instance()
 	}
@@ -389,7 +405,7 @@ func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	InfoMessage("Starting creation process !!!")
+	InfoMessage("Starting Create process !!!")
 
 	m.Save(vals)
 

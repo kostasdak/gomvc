@@ -1,0 +1,57 @@
+{{template "base" .}}
+
+{{define "content"}}
+    <div class="container">
+        <div class="row">
+            <div class="col">
+                <h1 class="text-center mt-4">Products Page</h1>
+                <table class="table table-bordered table-hover">
+                    <thead class="thead-light">
+                        <tr>
+                        {{ with .Model }}
+                            {{ range .Fields }}
+                                {{if ne . "id"}}
+                                    <th class="col-{{.}}">{{ . }}</th>
+                                {{ end }}
+                            {{end}}
+                        {{ end }}
+                    </tr>
+                  </thead>
+                    {{ with .Result }}
+                      {{ range . }}
+                            <tr>
+                                {{ $id := 0 }}
+                                {{ with .Values }}
+                                    {{range $i, $a := .}}
+                                        {{ if eq $i 0}}{{ $id = $a }}{{ end }}
+                                        {{if ne $i 0}}
+                                            {{if eq $i 1}}
+                                                <td>
+                                                    <a href="/products/edit/{{ $id }}" >Edit</a>
+                                                    <a href="/products/delete/{{ $id }}" >Delete</a> 
+                                                    <a href="/products/view/{{ $id }}" >{{ $a }}</a>
+                                                </td>
+                                            {{ else }}
+                                                <td>{{ $a }}</td>
+                                            {{ end }}
+                                        {{ end }}
+                                    {{end}}
+                                {{end}}
+                            </tr>
+                      {{ end }} 
+                    {{ end }}
+              </table>
+            </div>
+        </div>
+
+        <div class="row">
+
+            <div class="col text-center">
+
+                <a href="/products/create" class="btn btn-success">Add new product</a>
+
+            </div>
+        </div>
+
+    </div>
+{{end}}
