@@ -175,10 +175,10 @@ func main() {
 * register urls and actions 
 
 `RegisterAction (route, next, action, model)`</br>
-route = string "url"</br>
-next = route string "url" (used after POST to redirect browser)</br>
-action = [ `gomvc.ActionView` View (GET) / `gomvc.ActionCreate` Create (POST) / `gomvc.ActionUpdate` Update (POST) / `gomvc.ActionDelete` Delete (POST) ]</br>
-model = database gomvc.model object</br>
+route  : string "url"</br>
+next   : string "url" (used after POST to redirect browser)</br>
+action : [ `gomvc.ActionView` View (GET) / `gomvc.ActionCreate` Create (POST) / `gomvc.ActionUpdate` Update (POST) / `gomvc.ActionDelete` Delete (POST) ]</br>
+model  : database gomvc.model object</br>
 </br>
 
 ```
