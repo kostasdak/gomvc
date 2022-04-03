@@ -267,9 +267,8 @@ func ContactPostForm(w http.ResponseWriter, r *http.Request) {
 
 #### More Examples ...
 
-TO DO : links to examples_01, 02, 03, ...
+[Example 01](https://github.com/kostasdak/go-mvc-example-1) - basic use of gomvc, one table [products]
 
-[Example 01](https://github.com/kostasdak/go-mvc-example-1) - basic use of gomvc
+[Example 02](https://github.com/kostasdak/go-mvc-example-2) - basic use of gomvc, two related tables [products]->[colors] (one-to-many relation)
 
-[Example 02](https://github.com/kostasdak/go-mvc-example-2) - basic use of gomvc with two related tables [products]->[colors] (one-to-many relation)
-
+TO DO : more links, more examples
