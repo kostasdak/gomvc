@@ -1,4 +1,4 @@
-# MVC (Model View Controller) with Golang
+# MySQL - MVC (Model View Controller) with Golang
 
 MVC (Model View Controller) implementation with Golang using MySql database
 
