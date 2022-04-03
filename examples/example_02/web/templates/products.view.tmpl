@@ -5,13 +5,14 @@
         <div class="row">
             <div class="col">
                 <h1 class="text-center mt-4">Products Page</h1>
+                <p>{{ $m := .Model }}</p>
                 <table class="table table-bordered table-hover">
                     <thead class="thead-light">
                         <tr>
                         {{ with .Model }}
                             {{ range .Fields }}
-                                {{if ne . "id"}}
-                                    <th class="col-{{.}}">{{ .Model.Label . }}</th>
+                                {{if and (ne . "id") (ne . "colors.id") (ne . "colors.product_id")}}
+                                    <th class="col-{{.}}">{{ $m.Label . }}</th>
                                 {{ end }}
                             {{end}}
                         {{ end }}
@@ -24,7 +25,8 @@
                                 {{ with .Values }}
                                     {{range $i, $a := .}}
                                         {{ if eq $i 0}}{{ $id = $a }}{{ end }}
-                                        {{if ne $i 0}}
+                                        
+                                        {{if and (ne $i 0) (ne $i 8) (ne $i 9)}}
                                             {{if eq $i 1}}
                                                 <td>
                                                     <a href="/products/edit/{{ $id }}" >Edit</a>

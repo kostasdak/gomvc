@@ -56,7 +56,7 @@ func AppHandler(db *sql.DB, cfg *gomvc.AppConfig) http.Handler {
 	pViewModel.AssignLabels(map[string]string{
 		"id":                "Id",
 		"code":              "Code",
-		"type":              "V. Type",
+		"type":              "Veh. Type",
 		"name":              "Product",
 		"description":       "Description",
 		"price":             "Price",
@@ -64,7 +64,7 @@ func AppHandler(db *sql.DB, cfg *gomvc.AppConfig) http.Handler {
 		"status":            "Availability",
 		"colors.id":         "Id",
 		"colors.product_id": "PId",
-		"Colors.color":      "Color",
+		"colors.color":      "Color",
 	})
 
 	// view products
