@@ -1,0 +1,5 @@
+#ignore exe files
+*.exe
+
+#ignore examples
+examples
