@@ -7,6 +7,13 @@ This is a Golang package easy to use and build almost any MVC Web App connected 
 `gomvc` package requires a MySql Server up and running and a database ready to drive your web application.
 
 Build a standard MVC (Model, View, Controller) style web app like you use a classic PHP MVC Framework. 
+Package includes :
+`github.com/justinas/nosurf`
+`github.com/go-sql-driver/mysql`
+`github.com/go-chi/chi/v5`
+`github.com/alexedwards/scs/v2`
+`github.com/spf13/viper`
+
 
 * Load config file `config.yaml`
 * Connect to MySql database 
@@ -165,7 +172,7 @@ func main() {
 * initialize the controller
 * load your template files into cache
 * initialize your models
-* boom your web app works !!!
+* register urls and actions 
 
 ```
 func AppHandler(db *sql.DB, cfg *gomvc.AppConfig) http.Handler {
@@ -176,7 +183,7 @@ func AppHandler(db *sql.DB, cfg *gomvc.AppConfig) http.Handler {
 	// load template files ... path : /web/templates
 	c.CreateTemplateCache("home.view.tmpl", "base.layout.html")
 
-	// *** Start registering url, actions and models ***
+	// *** Start registering urls, actions and models ***
 	// home page
 	c.RegisterAction("/", "", gomvc.ActionView, nil)
 	c.RegisterAction("/home", "", gomvc.ActionView, nil)
@@ -218,7 +225,11 @@ func AppHandler(db *sql.DB, cfg *gomvc.AppConfig) http.Handler {
 	return c.Router
 }
 ```
+
 #### Custom Action func ContactPostForm()
+Build a custom func to handle a specific action or url.
+This example handles the POST request from a contact form.
+
 ```
 // Custom handler for specific page and action
 func ContactPostForm(w http.ResponseWriter, r *http.Request) {
