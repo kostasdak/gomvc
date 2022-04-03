@@ -5,6 +5,7 @@ MVC (Model View Controller) implementation with Golang using MySql database
 ## Overview
 This is a Golang package easy to use and build almost any MVC Web App connected to MySql database with just a few steps.
 `gomvc` package requires a MySql Server up and running and a database ready to drive your web application.
+
 Build a standard MVC (Model, View, Controller) style web app like you use a classic PHP MVC Framework. 
 
 * Load config file `config.yaml`
