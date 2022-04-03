@@ -265,7 +265,7 @@ func ContactPostForm(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-#### More Examples ...
+## More Examples ...
 
 [Example 01](https://github.com/kostasdak/go-mvc-example-1) - basic use of gomvc, one table [products]
 
