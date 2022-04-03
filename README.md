@@ -271,5 +271,5 @@ TO DO : links to examples_01, 02, 03, ...
 
 [Example 01](https://github.com/kostasdak/go-mvc-example-1) - basic use of gomvc
 
-[Example 02](https://github.com/kostasdak/go-mvc-example-2) - basic use of gomvc with two reated tables [products]->[colors]
+[Example 02](https://github.com/kostasdak/go-mvc-example-2) - basic use of gomvc with two related tables [products]->[colors] (one-to-many relation)
 
