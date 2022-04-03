@@ -174,6 +174,12 @@ func main() {
 * initialize your models
 * register urls and actions 
 
+`RegisterAction (route, next, action, model)`
+route = string "url"
+next = route string "url" (used after POST to redirect browser)
+action = [ `gomvc.ActionView` View (GET) / `gomvc.ActionCreate` Create (POST) / `gomvc.ActionUpdate` Update (POST) / `gomvc.ActionDelete` Delete (POST) ]
+model = database gomvc.model object
+
 ```
 func AppHandler(db *sql.DB, cfg *gomvc.AppConfig) http.Handler {
 
