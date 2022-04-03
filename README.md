@@ -130,7 +130,7 @@ if err != nil {
 }
 ```
 
-#### func main()
+#### main()
 ```
 func main() {
 
@@ -160,7 +160,7 @@ func main() {
 }
 ```
 
-#### AppHandler
+#### AppHandler()
 
 * initialize the controller
 * load your template files into cache
@@ -172,39 +172,76 @@ func AppHandler(db *sql.DB, cfg *gomvc.AppConfig) http.Handler {
 
 	// initialize
 	c.Initialize(db, cfg)
+
+	// load template files ... path : /web/templates
 	c.CreateTemplateCache("home.view.tmpl", "base.layout.html")
 
+	// *** Start registering url, actions and models ***
 	// home page
 	c.RegisterAction("/", "", gomvc.ActionView, nil)
 	c.RegisterAction("/home", "", gomvc.ActionView, nil)
 
-	//create model for table products
+	// create model for [products] table
 	pModel := gomvc.Model{DB: db, IdField: "id", TableName: "products"}
 
-	// view products
+	// view products ... /products for all records || /products/view/{id} for one product
 	c.RegisterAction("/products", "", gomvc.ActionView, &pModel)
 	c.RegisterAction("/products/view/*", "", gomvc.ActionView, &pModel)
 
-	// create product
+	// create product actions ... this url has two actions
+	// #1 View page -> empty form (no next url required)
+	// #2 Post form data to create a new record in table [products] -> then redirect to [next] url
 	c.RegisterAction("/products/create", "", gomvc.ActionView, &pModel)
 	c.RegisterAction("/products/create", "/products", gomvc.ActionCreate, &pModel)
 
-	// edit product
+	// create edit product actions ... this url has two actions
+	// #1 View page with product data -> edit form (no next url required)
+	// #2 Post form data to update record in table [products] -> then redirect to [next] url
 	c.RegisterAction("/products/edit/*", "", gomvc.ActionView, &pModel)
 	c.RegisterAction("/products/edit/*", "/products", gomvc.ActionUpdate, &pModel)
 
-	// delete product
+	// create delete product actions ... this url has two actions
+	// #1 View page with product data -> edit form [locked] to confirm detetion (no next url required)
+	// #2 Post form data to delete record in table [products] -> then redirect to [next] url
 	c.RegisterAction("/products/delete/*", "", gomvc.ActionView, &pModel)
 	c.RegisterAction("/products/delete/*", "/products", gomvc.ActionDelete, &pModel)
 
-	// about page
+	// create about page ... static page, no table/model, no [next] url
 	c.RegisterAction("/about", "", gomvc.ActionView, nil)
 
-	// contact page
+	// contact page ... static page, no table/model, no [next] url
 	c.RegisterAction("/contact", "", gomvc.ActionView, nil)
 
+	// contact page POST action ... static page, no table/model, no [next] url
+	// Register a custom func to handle the request/response using your oun code
 	c.RegisterCustomAction("/contact", "", gomvc.HttpPOST, nil, ContactPostForm)
 	return c.Router
+}
+```
+#### Custom Action func ContactPostForm()
+```
+// Custom handler for specific page and action
+func ContactPostForm(w http.ResponseWriter, r *http.Request) {
+
+	//test ... I have access to products model !!!
+	fmt.Print("Table Fields : ")
+	fmt.Println(c.Models["products"].Fields)
+
+	//read data from table products even this is a POST action for contact page
+	rows, _ := c.Models["products"].GetAllRecords(100)
+	fmt.Print("Select Rows : ")
+	fmt.Println(rows)
+
+	//test form fields
+	fmt.Print("Form Fields : ")
+	fmt.Println(r.Form)
+
+	//test session
+	c.GetSession().Put(r.Context(), "error", "Hello From Session")
+
+	//redirect to homepage
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+
 }
 ```
 
