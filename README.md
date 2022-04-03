@@ -8,7 +8,7 @@ This is a Golang package easy to use and build almost any MVC Web App connected 
 
 Build a standard MVC (Model, View, Controller) style web app like you use a classic PHP MVC Framework. 
 Package includes :
-`github.com/justinas/nosurf`\n
+`github.com/justinas/nosurf`</br>
 `github.com/go-sql-driver/mysql`
 `github.com/go-chi/chi/v5`
 `github.com/alexedwards/scs/v2`
