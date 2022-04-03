@@ -43,7 +43,7 @@ Note: If you're using the traditional `GOPATH` mechanism to manage dependencies,
 
 ### Basic Use
 
-Edit configuration file, 
+* Edit configuration file, 
 
 ```
 #UseCache true/false 
@@ -92,18 +92,18 @@ database:
   dbpass: ""
 ```
 
+### `func main()`
+
 Create controller variable in your `main.go` file outside the `func main()`
 Controller must be accessible from all functions in main package
 
 `var c gomvc.Controller`
 
-### `func main()`
-
-Load Configuration file 
+* Load Configuration file 
 
 `cfg := gomvc.LoadConfig("./configs/config.yml")`
 	
-Connect to database
+* Connect to database
 
 ```
 db, err := gomvc.ConnectDatabase(cfg.Database.Dbuser, cfg.Database.Dbpass, cfg.Database.Dbname)
@@ -114,7 +114,7 @@ if err != nil {
 defer db.Close()
 ```
 
-Start your server
+* Start web server
 
 ```
 srv := &http.Server{
@@ -164,7 +164,7 @@ func main() {
 
 * initialize the controller
 * load your template files into cache
-* register your actions ... view, create, edit, delete
+* initialize your models
 * boom your web app works !!!
 
 ```
@@ -175,31 +175,35 @@ func AppHandler(db *sql.DB, cfg *gomvc.AppConfig) http.Handler {
 	c.CreateTemplateCache("home.view.tmpl", "base.layout.html")
 
 	// home page
-	c.RegisterAction("/", "", gomvc.ActionView, "")
-	c.RegisterAction("/home", "", gomvc.ActionView, "")
+	c.RegisterAction("/", "", gomvc.ActionView, nil)
+	c.RegisterAction("/home", "", gomvc.ActionView, nil)
+
+	//create model for table products
+	pModel := gomvc.Model{DB: db, IdField: "id", TableName: "products"}
 
 	// view products
-	c.RegisterAction("/products", "", gomvc.ActionView, "products")
-	c.RegisterAction("/products/view/*", "", gomvc.ActionView, "products")
+	c.RegisterAction("/products", "", gomvc.ActionView, &pModel)
+	c.RegisterAction("/products/view/*", "", gomvc.ActionView, &pModel)
 
 	// create product
-	c.RegisterAction("/products/create", "", gomvc.ActionView, "products")
-	c.RegisterAction("/products/create", "/products", gomvc.ActionCreate, "products")
+	c.RegisterAction("/products/create", "", gomvc.ActionView, &pModel)
+	c.RegisterAction("/products/create", "/products", gomvc.ActionCreate, &pModel)
 
 	// edit product
-	c.RegisterAction("/products/edit/*", "", gomvc.ActionView, "products")
-	c.RegisterAction("/products/edit/*", "/products", gomvc.ActionUpdate, "products")
+	c.RegisterAction("/products/edit/*", "", gomvc.ActionView, &pModel)
+	c.RegisterAction("/products/edit/*", "/products", gomvc.ActionUpdate, &pModel)
 
 	// delete product
-	c.RegisterAction("/products/delete/*", "", gomvc.ActionView, "products")
-	c.RegisterAction("/products/delete/*", "/products", gomvc.ActionDelete, "products")
+	c.RegisterAction("/products/delete/*", "", gomvc.ActionView, &pModel)
+	c.RegisterAction("/products/delete/*", "/products", gomvc.ActionDelete, &pModel)
 
 	// about page
-	c.RegisterAction("/about", "", gomvc.ActionView, "")
+	c.RegisterAction("/about", "", gomvc.ActionView, nil)
 
 	// contact page
-	c.RegisterAction("/contact", "", gomvc.ActionView, "")
+	c.RegisterAction("/contact", "", gomvc.ActionView, nil)
 
+	c.RegisterCustomAction("/contact", "", gomvc.HttpPOST, nil, ContactPostForm)
 	return c.Router
 }
 ```
