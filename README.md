@@ -13,6 +13,7 @@ This is a Golang package easy to use and build almost any MVC Web App connected 
 * Start your server
 * Enjoy
 
+```
 (databse CRUD)   (http req/resp) 
      Model <------> Controller
         \            /    
@@ -22,6 +23,7 @@ This is a Golang package easy to use and build almost any MVC Web App connected 
             \    /
              View
      (text/template files)
+```
 
 ## Installation
 
