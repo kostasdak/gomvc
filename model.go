@@ -147,7 +147,15 @@ func (m *Model) GetRecordByPK(id int64) (ResultRow, error) {
 	if m == nil {
 		return ResultRow{}, errors.New("cannot perform action : GetRecordByPK() on nil model")
 	}
-	var q = "SELECT * FROM " + m.TableName + " WHERE " + m.IdField + "=" + strconv.FormatInt(int64(id), 10) + " LIMIT 1"
+	var q = "SELECT * FROM " + m.TableName
+	if len(m.Relations) > 0 {
+		for _, j := range m.Relations {
+			q = q + " " + string(j.Join_type) + " JOIN " + j.Model.TableName + " ON " + j.Model.TableName + "." + j.Foreign_key + "=" + m.TableName + "." + m.IdField
+		}
+	}
+
+	q = q + " WHERE " + m.TableName + "." + m.IdField + "=" + strconv.FormatInt(int64(id), 10) + " LIMIT 1"
+
 	r, err := m.DB.Query(q)
 	if err != nil {
 		return ResultRow{}, err
