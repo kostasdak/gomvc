@@ -8,31 +8,72 @@ import (
 )
 
 const (
-	ModelJoinInner Join = "INNER"
-	ModelJoinLeft  Join = "LEFT"
-	ModelJoinRight Join = "RIGHT"
+	ModelJoinInner JoinType = "INNER"
+	ModelJoinLeft  JoinType = "LEFT"
+	ModelJoinRight JoinType = "RIGHT"
+)
+
+const (
+	ResultStyleFullresult ResultStyle = 0
+	ResultStyleSubresult  ResultStyle = 1
+)
+
+const (
+	QueryTypeInsert QueryType = "c"
+	QueryTypeSelect QueryType = "r"
+	QueryTypeUpdate QueryType = "u"
+	QueryTypeDelete QueryType = "d"
 )
 
 type Model struct {
-	DB        *sql.DB
-	IdField   string
-	TableName string
-	Fields    []string
-	Labels    map[string]string
-	Relations []Relation
+	DB          *sql.DB
+	PKField     string
+	TableName   string
+	OrderString string
+	Fields      []string
+	Labels      map[string]string
+	Relations   []Relation
 }
 
-type Join string
+type JoinType string
+type ResultStyle int
+type QueryType string
 
 type ResultRow struct {
-	Values   []interface{}
-	pointers []interface{}
+	Values    []interface{}
+	Fields    []string
+	pointers  []interface{}
+	Subresult []ResultRow
 }
 
 type Relation struct {
-	Foreign_key string
-	Join_type   Join
-	Model       Model
+	Join          SQLJoin
+	Foreign_model Model
+	ResultStyle   ResultStyle
+}
+
+type SQLJoin struct {
+	Foreign_table string
+	Foreign_PK    string
+	Foreign_key   string
+	Join_type     JoinType
+}
+
+type SQLTable struct {
+	TableName string
+	PKField   string
+}
+
+type SQLField struct {
+	FieldName string
+	Value     interface{}
+}
+
+type Filter struct {
+	Field    string
+	Operator string
+	Value    interface{}
+	Logic    string
 }
 
 //Get current instance
@@ -40,11 +81,21 @@ func (m *Model) Instance() Model {
 	return *m
 }
 
+func (r *ResultRow) GetFieldIndex(name string) int {
+	for i, v := range r.Fields {
+		if name == v {
+			return i
+		}
+	}
+
+	return -1
+}
+
 //Pass initial Parammeters
-func (m *Model) InitModel(db *sql.DB, tableName string, idField string) error {
+func (m *Model) InitModel(db *sql.DB, tableName string, PKField string) error {
 	m.DB = db
 	m.TableName = tableName
-	m.IdField = idField
+	m.PKField = PKField
 
 	var q = "SHOW COLUMNS FROM " + tableName
 	r, err := m.DB.Query(q)
@@ -71,27 +122,8 @@ func (m *Model) InitModel(db *sql.DB, tableName string, idField string) error {
 
 	if len(m.Relations) > 0 {
 		for _, f := range m.Relations {
-			q = "SHOW COLUMNS FROM " + f.Model.TableName
-			r, err = m.DB.Query(q)
-			if err != nil {
-				return err
-			}
-			defer r.Close()
-
-			for r.Next() {
-				var rr ResultRow
-				rr.Values = make([]interface{}, 6)
-				rr.pointers = make([]interface{}, 6)
-
-				for i := 0; i < 6; i++ {
-					rr.pointers[i] = &rr.Values[i]
-				}
-
-				r.Scan(rr.pointers...)
-
-				b := rr.Values[0].([]byte)
-				n := string(b)
-				m.Fields = append(m.Fields, f.Model.TableName+"."+n)
+			for _, ff := range f.Foreign_model.Fields {
+				m.Fields = append(m.Fields, f.Join.Foreign_table+"."+ff)
 			}
 		}
 	}
@@ -103,14 +135,18 @@ func (m *Model) AssignLabels(labels map[string]string) {
 	m.Labels = labels
 }
 
-//add reational table (model)
-func (m *Model) AddRelation(db *sql.DB, tableName string, idField string, foreing_key string, join_type Join) {
+//add Foreign table (model)
+func (m *Model) AddRelation(db *sql.DB, tableName string, PKField string, foreing_key string, join_type JoinType, result_style ResultStyle) {
 	fm := new(Model)
-	fm.InitModel(db, tableName, idField)
+	fm.InitModel(db, tableName, PKField)
 	if m.Relations == nil {
 		m.Relations = make([]Relation, 0)
 	}
-	m.Relations = append(m.Relations, Relation{Model: *fm, Foreign_key: foreing_key, Join_type: join_type})
+	m.Relations = append(m.Relations,
+		Relation{Join: SQLJoin{Foreign_table: tableName, Foreign_PK: PKField, Foreign_key: foreing_key, Join_type: join_type},
+			Foreign_model: *fm,
+			ResultStyle:   result_style},
+	)
 }
 
 func (m *Model) Label(field string) string {
@@ -126,7 +162,13 @@ func (m *Model) GetLastId() (int64, error) {
 	if m == nil {
 		return 0, errors.New("cannot perform action : GetLastId() on nil model")
 	}
-	var q = "SELECT " + m.IdField + " FROM " + m.TableName + " ORDER BY " + m.IdField + " DESC LIMIT 1"
+
+	var q string
+	q, _ = BuildQuery(QueryTypeSelect,
+		[]SQLField{{FieldName: m.PKField}},
+		SQLTable{TableName: m.TableName, PKField: m.PKField},
+		[]SQLJoin{}, []Filter{}, "", "ORDER BY "+m.PKField+" DESC", 1)
+
 	r, err := m.DB.Query(q)
 	if err != nil {
 		return 0, err
@@ -142,85 +184,48 @@ func (m *Model) GetLastId() (int64, error) {
 	return id, err
 }
 
-//Query table by Primary Key
-func (m *Model) GetRecordByPK(id int64) (ResultRow, error) {
+//Query table with filters
+func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 	if m == nil {
-		return ResultRow{}, errors.New("cannot perform action : GetRecordByPK() on nil model")
+		return []ResultRow{}, errors.New("cannot perform action : GetRecords() on nil model")
 	}
-	var q = "SELECT * FROM " + m.TableName
+
+	j := make([]SQLJoin, 0)
 	if len(m.Relations) > 0 {
-		for _, j := range m.Relations {
-			q = q + " " + string(j.Join_type) + " JOIN " + j.Model.TableName + " ON " + j.Model.TableName + "." + j.Foreign_key + "=" + m.TableName + "." + m.IdField
+		for _, i := range m.Relations {
+			if i.ResultStyle == ResultStyleFullresult {
+				j = append(j, i.Join)
+			}
 		}
 	}
 
-	q = q + " WHERE " + m.TableName + "." + m.IdField + "=" + strconv.FormatInt(int64(id), 10) + " LIMIT 1"
+	q, values := BuildQuery(QueryTypeSelect, []SQLField{{FieldName: "*"}},
+		SQLTable{TableName: m.TableName, PKField: m.PKField},
+		j, filters, "", "", limit)
 
-	r, err := m.DB.Query(q)
+	r, err := m.DB.Query(q, values...)
 	if err != nil {
-		return ResultRow{}, err
+		InfoMessage(q)
+		return []ResultRow{}, err
 	}
 
-	r.Next()
-
-	var rr ResultRow
-	rr.Values = make([]interface{}, len(m.Fields))
-	rr.pointers = make([]interface{}, len(m.Fields))
-	for i := range m.Fields {
-		rr.pointers[i] = &rr.Values[i]
-	}
-
-	typ, _ := r.ColumnTypes()
-
-	err = r.Scan(rr.pointers...)
-	if err != nil {
-		return ResultRow{}, err
-	}
-
-	for i := range rr.Values {
-		val, err := constructField(typ[i], rr.Values[i])
-		if err != nil {
-			return ResultRow{}, err
-		}
-		rr.Values[i] = val
-	}
-
-	return rr, nil
-}
-
-//Query table and get all rows
-func (m *Model) GetAllRecords(limit int64) ([]ResultRow, error) {
-	if m == nil {
-		return []ResultRow{}, errors.New("cannot perform action : GetAllRecords() on nil model")
-	}
-
-	var q string
-	q = "SELECT * FROM " + m.TableName
-
-	if len(m.Relations) > 0 {
-		for _, j := range m.Relations {
-			q = q + " " + string(j.Join_type) + " JOIN " + j.Model.TableName + " ON " + j.Model.TableName + "." + j.Foreign_key + "=" + m.TableName + "." + m.IdField
-		}
-	}
-
-	if limit > 0 {
-		q = q + " WHERE 1=1 LIMIT " + strconv.FormatInt(int64(limit), 10)
-	} else {
-		q = q + " WHERE 1=1"
-	}
-
-	r, err := m.DB.Query(q)
+	typ, err := r.ColumnTypes()
 	if err != nil {
 		return []ResultRow{}, err
 	}
 
-	typ, _ := r.ColumnTypes()
+	fld, err := r.Columns()
+	if err != nil {
+		return []ResultRow{}, err
+	}
+
 	var rrr []ResultRow
 
 	for r.Next() {
 		var rr ResultRow
 		rr.Values = make([]interface{}, len(typ))
 		rr.pointers = make([]interface{}, len(typ))
+		rr.Fields = fld
 
 		for i := range typ {
 			rr.pointers[i] = &rr.Values[i]
@@ -239,35 +244,49 @@ func (m *Model) GetAllRecords(limit int64) ([]ResultRow, error) {
 			rr.Values[i] = val
 		}
 
+		if len(m.Relations) > 0 {
+			for _, relation := range m.Relations {
+				if relation.ResultStyle == ResultStyleSubresult {
+					PKIndex := rr.GetFieldIndex(m.PKField)
+					f := make([]Filter, 0)
+					f = append(f, Filter{Field: relation.Join.Foreign_key, Operator: "=", Value: rr.Values[PKIndex]})
+					rel_rr, err := relation.Foreign_model.GetRecords(f, 0)
+					if err != nil {
+						return []ResultRow{}, err
+					}
+					rr.Subresult = append(rr.Subresult, rel_rr...)
+				}
+			}
+		}
+
 		rrr = append(rrr, rr)
 	}
+
+	r.Close()
 
 	return rrr, nil
 }
 
-func (m *Model) GetRecords(filters []string, limit int64) ([]ResultRow, error) {
-	if m == nil {
-		return []ResultRow{}, errors.New("cannot perform action : GetRecords() on nil model")
-	}
-	//field=value
-	//field=*value
-	//field=*value*
-
-	return []ResultRow{}, nil
-}
-
 //Execute custon query
-func (m *Model) Execute(q string) ([]ResultRow, error) {
+func (m *Model) Execute(q string, values []interface{}) ([]ResultRow, error) {
 	if m == nil {
 		return []ResultRow{}, errors.New("cannot perform action : Execute() on nil model")
 	}
 
-	r, err := m.DB.Query(q)
+	r, err := m.DB.Query(q, values...)
 	if err != nil {
 		return nil, err
 	}
 
-	typ, _ := r.ColumnTypes()
+	typ, err := r.ColumnTypes()
+	if err != nil {
+		return []ResultRow{}, err
+	}
+
+	fld, err := r.Columns()
+	if err != nil {
+		return []ResultRow{}, err
+	}
 
 	var rrr []ResultRow
 
@@ -275,6 +294,7 @@ func (m *Model) Execute(q string) ([]ResultRow, error) {
 		var rr ResultRow
 		rr.Values = make([]interface{}, len(m.Fields))
 		rr.pointers = make([]interface{}, len(m.Fields))
+		rr.Fields = fld
 
 		for i := range m.Fields {
 			rr.pointers[i] = &rr.Values[i]
@@ -297,76 +317,53 @@ func (m *Model) Execute(q string) ([]ResultRow, error) {
 }
 
 //Execute save query
-func (m *Model) Save(vals map[string]string) (bool, error) {
+//func (m *Model) Save(vals map[string]string) (bool, error) {
+func (m *Model) Save(fields []SQLField) (bool, error) {
 	if m == nil {
 		return false, errors.New("cannot perform action : Save() on nil model")
 	}
 
-	var q = "INSERT INTO " + m.TableName + " ("
+	q, values := BuildQuery(QueryTypeInsert, fields,
+		SQLTable{TableName: m.TableName, PKField: m.PKField}, []SQLJoin{}, []Filter{}, "", "", 0)
 
-	if len(vals) > 0 {
-		var values = make([]interface{}, 0)
-		for k, v := range vals {
-			q = q + k + ","
-			values = append(values, v)
-		}
-		q = string(q[:len(q)-1]) + ") VALUES ("
-		for i := 0; i < len(vals); i++ {
-			q = q + "?,"
-		}
+	stmt, err := m.DB.Prepare(q)
+	if err != nil {
+		return false, err
+	}
 
-		q = string(q[:len(q)-1]) + ")"
+	defer stmt.Close()
 
-		stmt, err := m.DB.Prepare(q)
-		if err != nil {
-			return false, err
-		}
+	_, err = stmt.Exec(values...)
 
-		defer stmt.Close()
-
-		if err != nil {
-			return false, err
-		}
-
-		stmt.Exec(values...)
-
-		return true, nil
+	if err != nil {
+		InfoMessage(q)
+		return false, err
 	}
 
 	return false, nil
 }
 
 //Execute update query
-func (m *Model) Update(vals map[string]string, id string) (bool, error) {
+func (m *Model) Update(fields []SQLField, id string) (bool, error) {
 	if m == nil {
 		return false, errors.New("cannot perform action : Update() on nil model")
 	}
 
-	var q = "UPDATE " + m.TableName + " SET "
+	q, values := BuildQuery(QueryTypeUpdate, fields,
+		SQLTable{TableName: m.TableName, PKField: m.PKField}, []SQLJoin{}, []Filter{{Field: m.PKField, Operator: "=", Value: id}}, "", "", 0)
 
-	if len(vals) > 0 && len(id) > 0 {
-		var values = make([]interface{}, 0)
-		for k, v := range vals {
-			q = q + k + " = ?, "
-			values = append(values, v)
-		}
+	stmt, err := m.DB.Prepare(q)
+	if err != nil {
+		return false, err
+	}
 
-		q = string(q[:len(q)-2]) + " WHERE " + m.IdField + "=" + id
+	defer stmt.Close()
 
-		stmt, err := m.DB.Prepare(q)
-		if err != nil {
-			return false, err
-		}
+	_, err = stmt.Exec(values...)
 
-		defer stmt.Close()
-
-		if err != nil {
-			return false, err
-		}
-
-		stmt.Exec(values...)
-
-		return true, nil
+	if err != nil {
+		InfoMessage(q)
+		return false, err
 	}
 
 	return false, nil
@@ -378,7 +375,8 @@ func (m *Model) Delete(id string) (bool, error) {
 		return false, errors.New("cannot perform action : Delete() on nil model")
 	}
 
-	var q = "DELETE FROM " + m.TableName + " WHERE " + m.IdField + "=" + id
+	q, values := BuildQuery(QueryTypeDelete, []SQLField{},
+		SQLTable{TableName: m.TableName, PKField: m.PKField}, []SQLJoin{}, []Filter{{Field: m.PKField, Operator: "=", Value: id}}, "", "", 0)
 
 	stmt, err := m.DB.Prepare(q)
 	if err != nil {
@@ -387,11 +385,12 @@ func (m *Model) Delete(id string) (bool, error) {
 
 	defer stmt.Close()
 
+	_, err = stmt.Exec(values...)
+
 	if err != nil {
+		InfoMessage(q)
 		return false, err
 	}
-
-	stmt.Exec()
 
 	return true, nil
 }
@@ -401,8 +400,28 @@ func constructField(ct *sql.ColumnType, val interface{}) (interface{}, error) {
 	if val == nil {
 		return nil, nil
 	}
-	b := val.([]byte)
-	n := string(b)
+
+	var b []byte
+	var n string
+
+	switch v := val.(type) {
+	case int:
+		n = strconv.FormatInt(val.(int64), 10)
+	case int64:
+		n = strconv.FormatInt(val.(int64), 10)
+	case float64:
+		n = strconv.FormatFloat(val.(float64), 'f', 64, 64)
+		b = []byte(n)
+	case float32:
+		n = strconv.FormatFloat(float64(val.(float32)), 'f', 32, 32)
+		b = []byte(n)
+	case []uint8:
+		b = val.([]byte)
+		n = string(b)
+	default:
+		_ = v
+		//b = val.([]byte)
+	}
 
 	switch ct.DatabaseTypeName() {
 	case "BIT":
@@ -474,4 +493,88 @@ func constructField(ct *sql.ColumnType, val interface{}) (interface{}, error) {
 		return t, nil
 	}
 	return nil, nil
+}
+
+func BuildQuery(queryType QueryType, fields []SQLField, table SQLTable, joins []SQLJoin, wheres []Filter, group string, order string, limit int64) (string, []interface{}) {
+	q := ""
+	s := ""
+	j := ""
+	w := ""
+	g := ""
+	o := ""
+	l := ""
+
+	//SELECT
+	if len(fields) > 0 {
+		for _, fld := range fields {
+			s = s + fld.FieldName + ", "
+		}
+		s = s[:len(s)-2]
+	} else {
+		s = "*"
+	}
+
+	//JOIN
+	for _, jn := range joins {
+		j = j + " " + string(jn.Join_type) + " JOIN " + jn.Foreign_table + " ON "
+		j = j + jn.Foreign_table + "." + jn.Foreign_key + "=" + table.TableName + "." + table.PKField
+	}
+
+	//WHERE
+	var values = make([]interface{}, 0)
+	if len(wheres) > 0 {
+		w = " WHERE "
+		for _, f := range wheres {
+			if len(f.Logic) > 0 {
+				w = w + " " + f.Logic + " "
+			}
+			w = w + "(" + f.Field + " " + f.Operator + " ?)"
+			values = append(values, f.Value)
+		}
+	}
+
+	//GROUP BY
+	if len(group) > 0 {
+		g = " " + group
+	}
+
+	//ORDER
+	if len(order) > 0 {
+		o = " " + order
+	}
+
+	//LIMIT
+	if limit > 0 {
+		l = " LIMIT " + strconv.FormatInt(int64(limit), 10)
+	}
+
+	switch queryType {
+	case QueryTypeSelect:
+		q = "SELECT " + s + " FROM " + table.TableName + j + w + g + o + l
+	case QueryTypeInsert:
+		q = "INSERT INTO " + table.TableName + " (" + s + ") VALUES ("
+		for _, fld := range fields {
+			q = q + "?, "
+			values = append(values, fld.Value)
+		}
+		q = q[:len(q)-2] + ")"
+
+	case QueryTypeUpdate:
+		q = "UPDATE " + table.TableName + " SET "
+		for _, fld := range fields {
+			q = q + fld.FieldName + " = ?, "
+			values = append(values, fld.Value)
+		}
+		v0 := values[0]
+		values = values[1:]
+		values = append(values, v0)
+		q = q[:len(q)-2] + w
+
+	case QueryTypeDelete:
+		q = "DELETE FROM " + table.TableName + w
+	default:
+		q = ""
+	}
+
+	return q, values
 }

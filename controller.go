@@ -306,7 +306,8 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	if cOptions.hasTable {
 		if len(params) == 0 {
 			//load all models
-			rr, err = c.Models[baseUrl].GetAllRecords(0)
+			//rr, err = c.Models[baseUrl].GetAllRecords(0)
+			rr, err = c.Models[baseUrl].GetRecords([]Filter{}, 0)
 			if err != nil {
 				ServerError(w, err)
 				return
@@ -316,13 +317,11 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 		} else {
 			//load single model
 			id, _ := strconv.ParseInt(params[0], 10, 64)
-			rr = make([]ResultRow, 1)
-			rr[0], err = c.Models[baseUrl].GetRecordByPK(id)
+			rr, err = c.Models[baseUrl].GetRecords([]Filter{{Field: c.Models[baseUrl].PKField, Operator: "=", Value: id}}, 1)
 			if err != nil {
 				ServerError(w, err)
 				return
 			}
-			//related result ?
 		}
 	}
 
@@ -378,12 +377,11 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 
 // Create Action --- POST ---
 func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
-	var m Model
 	var err error
-	baseUrl, cntrlr, _, _ := extractUrlPath(r, c.TemplateHomePage)
+	baseUrl, _, _, _ := extractUrlPath(r, c.TemplateHomePage)
 
-	cOptions, ok := c.Options[baseUrl]
-	if !ok {
+	cOptions, hasOptions := c.Options[baseUrl]
+	if !hasOptions {
 		err = errors.New("controller has no options")
 		ServerError(w, err)
 		return
@@ -394,22 +392,31 @@ func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.InitModel(c.DB, cntrlr, "id")
+	m, ok := c.Models[baseUrl]
+	if !ok {
+		err = errors.New("Model for controller : " + baseUrl + " not found")
+		ServerError(w, err)
+		return
+	}
 
-	var vals = make(map[string]string)
+	var fields []SQLField
 
 	for _, f := range m.Fields {
 		var fv = r.Form.Get(f)
 		if fv != "" {
-			vals[f] = fv
+			fields = append(fields, SQLField{FieldName: f, Value: fv})
 		}
 	}
 
 	InfoMessage("Starting Create process !!!")
 
-	m.Save(vals)
+	_, err = m.Save(fields)
+	if err != nil {
+		ServerError(w, err)
+		return
+	}
 
-	if ok {
+	if len(cOptions.next) > 0 {
 		http.Redirect(w, r, string(cOptions.next), http.StatusSeeOther)
 	} else {
 		c.viewAction(w, r)
@@ -418,10 +425,9 @@ func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 
 // Update Action --- POST ---
 func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
-	var m Model
 	var err error
 
-	baseUrl, cntrlr, _, params := extractUrlPath(r, c.TemplateHomePage)
+	baseUrl, _, _, params := extractUrlPath(r, c.TemplateHomePage)
 
 	cOptions, ok := c.Options[baseUrl]
 	if !ok {
@@ -435,22 +441,30 @@ func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.InitModel(c.DB, cntrlr, "id")
-
-	var vals = make(map[string]string)
+	m, ok := c.Models[baseUrl]
+	if !ok {
+		err = errors.New("Model for controller : " + baseUrl + " not found")
+		ServerError(w, err)
+		return
+	}
+	var fields []SQLField
 
 	for _, f := range m.Fields {
 		var fv = r.Form.Get(f)
 		if fv != "" {
-			vals[f] = fv
+			fields = append(fields, SQLField{FieldName: f, Value: fv})
 		}
 	}
 
 	InfoMessage("Starting Update process !!!")
 
-	m.Update(vals, params[0])
+	_, err = m.Update(fields, params[0])
+	if err != nil {
+		ServerError(w, err)
+		return
+	}
 
-	if ok {
+	if len(cOptions.next) > 0 {
 		http.Redirect(w, r, cOptions.next, http.StatusSeeOther)
 	} else {
 		c.viewAction(w, r)
@@ -459,10 +473,10 @@ func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 
 //Delete Action --- POST ---
 func (c *Controller) deleteAction(w http.ResponseWriter, r *http.Request) {
-	var m Model
+
 	var err error
 
-	baseUrl, cntrlr, _, params := extractUrlPath(r, c.TemplateHomePage)
+	baseUrl, _, _, params := extractUrlPath(r, c.TemplateHomePage)
 
 	cOptions, ok := c.Options[baseUrl]
 	if !ok {
@@ -471,18 +485,23 @@ func (c *Controller) deleteAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !cOptions.hasTable {
-		err = errors.New("this action (deleteAction) needs a database table")
+		err = errors.New("this action (updateAction) needs a database table")
 		ServerError(w, err)
 		return
 	}
 
-	m.InitModel(c.DB, cntrlr, "id")
+	m, ok := c.Models[baseUrl]
+	if !ok {
+		err = errors.New("Model for controller : " + baseUrl + " not found")
+		ServerError(w, err)
+		return
+	}
 
 	InfoMessage("Starting Delete process !!!")
 
 	m.Delete(params[0])
 
-	if ok {
+	if len(cOptions.next) > 0 {
 		http.Redirect(w, r, cOptions.next, http.StatusSeeOther)
 	} else {
 		c.viewAction(w, r)
