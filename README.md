@@ -31,7 +31,8 @@ Build a standard MVC (Model, View, Controller) style web app with minimum Golang
 * Write your standard text/Template files (Views)
 * Start your server and enjoy
 
-Package includes :</br>
+
+### This package includes :</br>
 `github.com/justinas/nosurf`</br>
 `github.com/go-sql-driver/mysql`</br>
 `github.com/go-chi/chi/v5`</br>
