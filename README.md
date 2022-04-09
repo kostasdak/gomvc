@@ -33,11 +33,11 @@ Build a standard MVC (Model, View, Controller) style web app with minimum Golang
 
 
 #### This package includes :</br>
-`github.com/justinas/nosurf`</br>
-`github.com/go-sql-driver/mysql`</br>
-`github.com/go-chi/chi/v5`</br>
-`github.com/alexedwards/scs/v2`</br>
-`github.com/spf13/viper`</br>
+MySql Driver : `github.com/go-sql-driver/mysql`</br>
+http Router : `github.com/go-chi/chi/v5`</br>
+csrf middleware :`github.com/justinas/nosurf`</br>
+Session middleware : `github.com/alexedwards/scs/v2`</br>
+Config Loader :`github.com/spf13/viper`</br>
 </br>
 
 ## Features
