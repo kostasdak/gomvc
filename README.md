@@ -9,6 +9,20 @@ This is a Golang package easy to use and build almost any MVC Web App connected 
 Build a standard MVC (Model, View, Controller) style web app with minimum Golang code, like you use a classic MVC Framework. </br>
 </br>
 
+#### MVC
+
+```
+(databse CRUD)      (http req/resp) 
+     Model <--------> Controller
+         \            /    
+          \          /
+           \        /
+            \      /
+             \    /
+              View
+      (text/template files)
+```
+
 #### Basic Steps
 * Edit the config file
 * Load config file `config.yaml`
@@ -34,19 +48,7 @@ Package includes :</br>
 
 
 
-### MVC
 
-```
-(databse CRUD)   (http req/resp) 
-     Model <------> Controller
-        \            /    
-         \          /
-          \        /
-           \      /
-            \    /
-             View
-     (text/template files)
-```
 
 ## Installation
 
