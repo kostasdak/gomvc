@@ -7,6 +7,16 @@ This is a Golang package easy to use and build almost any MVC Web App connected 
 `gomvc` package requires a MySql Server up and running and a database ready to drive your web application.</br>
 
 Build a standard MVC (Model, View, Controller) style web app with minimum Golang code, like you use a classic MVC Framework. </br>
+</br>
+
+#### Basic Steps
+* Edit the config file
+* Load config file `config.yaml`
+* Connect to MySql database 
+* Write code to initialize your Models and Controllers
+* Write your standard text/Template files (Views)
+* Start your server and enjoy
+
 Package includes :</br>
 `github.com/justinas/nosurf`</br>
 `github.com/go-sql-driver/mysql`</br>
@@ -21,11 +31,7 @@ Package includes :</br>
 
 
 
-* Load config file `config.yaml`
-* Connect to MySql database 
-* Write code to initialize your Models and Controllers
-* Write your standard text/Template files (Views)
-* Start your server and enjoy
+
 
 
 ### MVC
