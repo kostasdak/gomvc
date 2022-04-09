@@ -15,12 +15,17 @@ Package includes :</br>
 `github.com/spf13/viper`</br>
 </br>
 
+## Features
+
+
+
+
+
 * Load config file `config.yaml`
 * Connect to MySql database 
 * Write code to initialize your Models and Controllers
 * Write your standard text/Template files (Views)
-* Start your server
-* Enjoy
+* Start your server and enjoy
 
 
 ### MVC
