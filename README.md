@@ -6,7 +6,9 @@ MVC (Model View Controller) implementation with Golang using MySql database
 This is a Golang package easy to use and build almost any MVC Web App connected to MySql database with just a few steps.</br>
 `gomvc` package requires a MySql Server up and running and a database ready to drive your web application.</br>
 
-Build a standard MVC (Model, View, Controller) style web app with minimum Golang code, like you use a classic MVC Framework. </br>
+Build a standard MVC (Model, View, Controller) style web app with minimum Golang code, like you use a classic MVC Framework.</br>
+Many features, many ready to use functions, highly customizable, embeded log and error handling 
+
 </br>
 
 #### MVC
@@ -42,14 +44,14 @@ Config Loader :`github.com/spf13/viper`</br>
 
 ## Features
 
-
-
-
-
-
-
-
-
+* Easy to use and build.
+* Embeded libraries 
+* Strong MVC pattern
+* Flexibility and Customization
+* Models with many features and ready easy to use functions
+* Controlles with simple yet powerful http handling
+* Ability to attach our own functions to Controlles http handling
+* Embeded info log and server error handling
 
 ## Installation
 

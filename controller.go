@@ -24,9 +24,9 @@ const (
 
 const (
 	ActionView   Action = 0
-	ActionCreate        = 1
-	ActionUpdate        = 2
-	ActionDelete        = 3
+	ActionCreate Action = 1
+	ActionUpdate Action = 2
+	ActionDelete Action = 3
 )
 
 type Action int
