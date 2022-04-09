@@ -197,7 +197,11 @@ func main() {
 route  : `string` "url"</br>
 next   : `string` "url" (used after POST to redirect browser)</br>
 action : [</br>
-`gomvc.ActionView` View (GET) / `gomvc.ActionCreate` Create (POST) / `gomvc.ActionUpdate` Update (POST) / `gomvc.ActionDelete` Delete (POST)</br>]</br>
+`gomvc.ActionView` View (GET) /</br>
+`gomvc.ActionCreate` Create (POST) /</br>
+`gomvc.ActionUpdate` Update (POST) /</br>
+`gomvc.ActionDelete` Delete (POST)</br>
+]</br>
 model  : database `gomvc.model` object</br>
 </br>
 
