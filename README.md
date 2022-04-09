@@ -50,8 +50,9 @@ Config Loader :`github.com/spf13/viper`</br>
 * Flexibility and Customization
 * Models with many features and ready easy to use functions
 * Controlles with simple yet powerful http handling
-* Ability to attach our own functions to Controlles http handling
+* Ability to attach our own functions to Controlles for http handling
 * Embeded info log and server error handling
+* Many examples to cover almost every case.
 
 ## Installation
 
@@ -195,7 +196,8 @@ func main() {
 `RegisterAction (route, next, action, model)`</br>
 route  : `string` "url"</br>
 next   : `string` "url" (used after POST to redirect browser)</br>
-action : [ `gomvc.ActionView` View (GET) / `gomvc.ActionCreate` Create (POST) / `gomvc.ActionUpdate` Update (POST) / `gomvc.ActionDelete` Delete (POST) ]</br>
+action : [</br>
+`gomvc.ActionView` View (GET) / `gomvc.ActionCreate` Create (POST) / `gomvc.ActionUpdate` Update (POST) / `gomvc.ActionDelete` Delete (POST)</br>]</br>
 model  : database `gomvc.model` object</br>
 </br>
 
