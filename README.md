@@ -49,6 +49,7 @@ Config Loader :`github.com/spf13/viper`</br>
 * Strong MVC pattern
 * Flexibility and Customization
 * Models with many features and ready easy to use functions
+* Models with build in relational functionlity with other database tables
 * Controlles with simple yet powerful http handling
 * Ability to attach our own functions to Controlles for http handling
 * Embeded info log and server error handling
@@ -318,5 +319,8 @@ func ContactPostForm(w http.ResponseWriter, r *http.Request) {
 [Example 01](https://github.com/kostasdak/go-mvc-example-1) - basic use of gomvc, one table [products]
 
 [Example 02](https://github.com/kostasdak/go-mvc-example-2) - basic use of gomvc, two tables related [products]->[colors] (one-to-many relation)
+
+[Example 03](https://github.com/kostasdak/go-mvc-example-3) - under construction
+
 
 TO DO : more links, more examples
