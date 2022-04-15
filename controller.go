@@ -2,12 +2,13 @@ package gomvc
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -49,6 +50,13 @@ type controllerOptions struct {
 	action   Action
 	method   int
 	hasTable bool
+}
+
+type RequestObject struct {
+	baseUrl string
+	cntrlr  string
+	action  string
+	params  map[string][]interface{}
 }
 
 type TemplateObject struct {
@@ -104,6 +112,10 @@ func (c *Controller) GetSession() *scs.SessionManager {
 }
 
 func (c *Controller) RegisterAction(route string, next string, action Action, model *Model) {
+	if c.Router == nil {
+		log.Fatal("Controller is not initialized")
+		return
+	}
 	if c.Options == nil {
 		c.Options = make(map[string]controllerOptions, 0)
 	}
@@ -130,7 +142,7 @@ func (c *Controller) RegisterAction(route string, next string, action Action, mo
 	}
 
 	c.Options[cKey] = controllerOptions{next: next, action: action, hasTable: hasTable}
-	//fmt.Println(key)
+	//fmt.Println(cKey)
 
 	if action == ActionView {
 		c.Router.Get(route, c.viewAction)
@@ -144,11 +156,14 @@ func (c *Controller) RegisterAction(route string, next string, action Action, mo
 	if action == ActionDelete {
 		c.Router.Post(route, c.deleteAction)
 	}
-
 }
 
 //Register route -> responsible for processing requests and generating responses
 func (c *Controller) RegisterCustomAction(route string, next string, method int, model *Model, f http.HandlerFunc) {
+	if c.Router == nil {
+		log.Fatal("Controller is not initialized")
+		return
+	}
 	if c.Options == nil {
 		c.Options = make(map[string]controllerOptions, 0)
 	}
@@ -187,6 +202,10 @@ func (c *Controller) RegisterCustomAction(route string, next string, method int,
 
 // Load template files
 func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplateFileName string) error {
+	if c.Router == nil {
+		log.Fatal("Controller is not initialized")
+		return errors.New("Controller is not initialized")
+	}
 	myCache := make(map[string]TemplateObject, 0)
 	c.TemplateLayout = layoutTemplateFileName
 	c.TemplateHomePage = homePageFileName
@@ -235,58 +254,79 @@ func (c *Controller) addTemplateData(td TemplateData, r *http.Request) TemplateD
 	return td
 }
 
-func extractUrlPath(r *http.Request, homePageFile string) (string, string, string, []string) {
-	var cntrlr string
-	var action string
-	var params []string
-	/* Extract Controller / View / Params */
-	www := strings.Split(r.URL.String(), "/")
-	baseUrl := ""
+// (string, string, string, map[string][]interface{})
+func parseRequest(r *http.Request, homePageFilename string) RequestObject {
+	rParts := strings.Split(r.URL.String(), "?")
+	var params = make(map[string][]interface{}, 0)
+	var retValue RequestObject
 
-	hp := strings.Split(homePageFile, ".")
+	cntrlr, action, paramsStr, baseUrl := exportControllerAndAction(rParts[0])
+	if len(paramsStr) > 0 {
+		params["***KEY***"] = []interface{}{paramsStr}
+	}
 
-	for i, p := range www {
-		if i == 1 {
-			cntrlr = strings.TrimSpace(p)
-			baseUrl = "/" + cntrlr
-		}
-		if i == 2 {
-			action = strings.TrimSpace(p)
-			baseUrl = baseUrl + "/" + action
-		}
-		if i > 2 {
+	//Build params from url string [part 2]
+	if len(rParts) > 1 {
+		tmp2 := strings.Split(rParts[1], "&")
 
-			tmp := strings.Split(p, "?")
+		for _, vv := range tmp2 {
+			tmp3 := strings.SplitN(vv, "=", 2)
+			if len(tmp3) > 1 {
+				//fmt.Println(">1 : ", tmp3)
+				var ppp = make(map[string]interface{}, 0)
 
-			if len(tmp) > 1 {
-				for _, v := range tmp {
-					tmp2 := strings.Split(v, "&")
-
-					if len(tmp2) > 1 {
-
-						params = append(params, tmp2...)
-
+				urlStr, err := url.QueryUnescape(tmp3[1])
+				if err == nil {
+					err := json.Unmarshal([]byte(urlStr), &ppp)
+					if err == nil {
+						params[tmp3[0]] = append(params[tmp3[0]], ppp)
 					} else {
-
-						params = append(params, v)
-
+						params[tmp3[0]] = []interface{}{urlStr}
 					}
 				}
 			} else {
-				params = append(params, p)
+				if len(vv) > 0 {
+					params["id"] = []interface{}{vv}
+				}
 			}
 
-			baseUrl = baseUrl + "/"
 		}
 	}
+
 	if action == "" {
 		action = "view"
 	}
 	if len(cntrlr) == 0 {
+		hp := strings.Split(homePageFilename, ".")
 		cntrlr = hp[0]
 	}
 
-	return baseUrl, cntrlr, action, params
+	retValue = RequestObject{baseUrl: baseUrl, cntrlr: cntrlr, action: action, params: params}
+
+	return retValue
+}
+
+func exportControllerAndAction(urlFirstPart string) (string, string, string, string) {
+	cntrlr, action, params, baseUrl := "", "", "", ""
+	www := strings.Split(urlFirstPart, "/")
+	for i, p := range www {
+		//controller
+		if i == 1 {
+			cntrlr = strings.TrimSpace(p)
+			baseUrl = "/" + cntrlr
+		}
+		//action
+		if i == 2 {
+			action = strings.TrimSpace(p)
+			baseUrl = baseUrl + "/" + action
+		}
+		if i == 3 {
+			params = strings.TrimSpace(p)
+			baseUrl = baseUrl + "/"
+		}
+	}
+
+	return cntrlr, action, params, baseUrl
 }
 
 // View Action --- GET ---
@@ -294,9 +334,9 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	var rr []ResultRow
 	var err error
 
-	baseUrl, cntrlr, action, params := extractUrlPath(r, c.TemplateHomePage)
+	rObj := parseRequest(r, c.TemplateHomePage)
 
-	cOptions, ok := c.Options[baseUrl]
+	cOptions, ok := c.Options[rObj.baseUrl]
 	if !ok {
 		err = errors.New("controller has no options")
 		ServerError(w, err)
@@ -304,20 +344,43 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if cOptions.hasTable {
-		if len(params) == 0 {
-			//load all models
-			//rr, err = c.Models[baseUrl].GetAllRecords(0)
-			rr, err = c.Models[baseUrl].GetRecords([]Filter{}, 0)
+		m := c.Models[rObj.baseUrl]
+		if len(rObj.params) == 0 {
+			// Get all rows
+			rr, err = m.GetRecords([]Filter{}, 0)
 			if err != nil {
 				ServerError(w, err)
 				return
 			}
-			//related result ?
-
 		} else {
-			//load single model
-			id, _ := strconv.ParseInt(params[0], 10, 64)
-			rr, err = c.Models[baseUrl].GetRecords([]Filter{{Field: c.Models[baseUrl].PKField, Operator: "=", Value: id}}, 1)
+			// Build filter -> only for primary key
+			f := make([]Filter, 0)
+			fv, ok := rObj.params["***KEY***"]
+			if ok {
+				f = append(f, Filter{Field: m.TableName + "." + m.PKField, Operator: "=", Value: fv[0]})
+			}
+
+			// Multiple filters -> ?filters={"name":"ford","description":"2021"}
+			for k, v := range rObj.params {
+				if k == "filters" {
+					for _, vv := range v {
+						vvMap, _ := vv.(map[string]interface{})
+						for kkk, vvv := range vvMap {
+							if FindInSlice(m.Fields, kkk) > -1 {
+								if len(f) > 0 {
+									f = append(f, Filter{Field: m.TableName + "." + kkk, Operator: " LIKE ", Value: "%" + vvv.(string) + "%", Logic: "AND"})
+								} else {
+									f = append(f, Filter{Field: m.TableName + "." + kkk, Operator: " LIKE ", Value: "%" + vvv.(string) + "%"})
+								}
+
+							}
+						}
+					}
+				}
+			}
+
+			//Get single row
+			rr, err = m.GetRecords(f, 1)
 			if err != nil {
 				ServerError(w, err)
 				return
@@ -326,9 +389,9 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/* Get page template from name */
-	page := cntrlr + "." + action + ".tmpl"
+	page := rObj.cntrlr + "." + rObj.action + ".tmpl"
 
-	InfoMessage("Action View : " + page + " params : " + strings.Join(params, ","))
+	InfoMessage("Action View : " + page + " URL : " + rObj.baseUrl + " params : " + fmt.Sprint(rObj.params))
 
 	var t *template.Template
 	if c.Config.UseCache {
@@ -365,7 +428,8 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 
 	var td TemplateData
 	td.Result = rr
-	m, ok := c.Models[baseUrl]
+	td.URLParams = rObj.params
+	m, ok := c.Models[rObj.baseUrl]
 	if ok {
 		td.Model = m.Instance()
 	}
@@ -378,9 +442,10 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 // Create Action --- POST ---
 func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 	var err error
-	baseUrl, _, _, _ := extractUrlPath(r, c.TemplateHomePage)
 
-	cOptions, hasOptions := c.Options[baseUrl]
+	rObj := parseRequest(r, c.TemplateHomePage)
+
+	cOptions, hasOptions := c.Options[rObj.baseUrl]
 	if !hasOptions {
 		err = errors.New("controller has no options")
 		ServerError(w, err)
@@ -392,9 +457,9 @@ func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m, ok := c.Models[baseUrl]
+	m, ok := c.Models[rObj.baseUrl]
 	if !ok {
-		err = errors.New("Model for controller : " + baseUrl + " not found")
+		err = errors.New("Model for controller : " + rObj.baseUrl + " not found")
 		ServerError(w, err)
 		return
 	}
@@ -427,9 +492,9 @@ func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	baseUrl, _, _, params := extractUrlPath(r, c.TemplateHomePage)
+	rObj := parseRequest(r, c.TemplateHomePage)
 
-	cOptions, ok := c.Options[baseUrl]
+	cOptions, ok := c.Options[rObj.baseUrl]
 	if !ok {
 		err = errors.New("controller has no options")
 		ServerError(w, err)
@@ -441,9 +506,9 @@ func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m, ok := c.Models[baseUrl]
+	m, ok := c.Models[rObj.baseUrl]
 	if !ok {
-		err = errors.New("Model for controller : " + baseUrl + " not found")
+		err = errors.New("Model for controller : " + rObj.baseUrl + " not found")
 		ServerError(w, err)
 		return
 	}
@@ -458,8 +523,16 @@ func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 
 	InfoMessage("Starting Update process !!!")
 
-	_, err = m.Update(fields, params[0])
-	if err != nil {
+	id, ok := rObj.params["***KEY***"]
+	if ok {
+		_, err = m.Update(fields, fmt.Sprint(id[0]))
+		if err != nil {
+			ServerError(w, err)
+			return
+		}
+	} else {
+		err = errors.New("Table's primary key [" + m.PKField + "] not found in parameters array." +
+			"Url parameters must have [" + m.PKField + "] as parameter OR table must have [id] field as primary key")
 		ServerError(w, err)
 		return
 	}
@@ -471,14 +544,14 @@ func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Delete Action --- POST ---
+// Delete Action --- POST ---
 func (c *Controller) deleteAction(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	baseUrl, _, _, params := extractUrlPath(r, c.TemplateHomePage)
+	rObj := parseRequest(r, c.TemplateHomePage)
 
-	cOptions, ok := c.Options[baseUrl]
+	cOptions, ok := c.Options[rObj.baseUrl]
 	if !ok {
 		err = errors.New("controller has no options")
 		ServerError(w, err)
@@ -490,16 +563,28 @@ func (c *Controller) deleteAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m, ok := c.Models[baseUrl]
+	m, ok := c.Models[rObj.baseUrl]
 	if !ok {
-		err = errors.New("Model for controller : " + baseUrl + " not found")
+		err = errors.New("Model for controller : " + rObj.baseUrl + " not found")
 		ServerError(w, err)
 		return
 	}
 
 	InfoMessage("Starting Delete process !!!")
 
-	m.Delete(params[0])
+	id, ok := rObj.params["***KEY***"]
+	if ok {
+		_, err = m.Delete(fmt.Sprint(id[0]))
+		if err != nil {
+			ServerError(w, err)
+			return
+		}
+	} else {
+		err = errors.New("Table's primary key [" + m.PKField + "] not found in parameters array." +
+			"Url parameters must have [" + m.PKField + "] as parameter OR table must have [id] field as primary key")
+		ServerError(w, err)
+		return
+	}
 
 	if len(cOptions.next) > 0 {
 		http.Redirect(w, r, cOptions.next, http.StatusSeeOther)

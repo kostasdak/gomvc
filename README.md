@@ -45,15 +45,15 @@ Config Loader :`github.com/spf13/viper`</br>
 ## Features
 
 * Easy to use and build.
-* Embeded libraries 
+* Embeded libraries like : session managment, csrf middleware, http router
+* Embeded info log and server error handling
 * Strong MVC pattern
 * Flexibility and Customization
 * Models with many features and ready easy to use functions
 * Models with build in relational functionlity with other database tables
 * Controlles with simple yet powerful http handling
 * Ability to attach our own functions to Controlles for http handling
-* Embeded info log and server error handling
-* Many examples to cover almost every case.
+* Examples to cover almost every case.
 
 ## Installation
 
@@ -67,6 +67,36 @@ Note: If you're using the traditional `GOPATH` mechanism to manage dependencies,
 
 </br>
 </br>
+
+## Template file names general rules
+It is recomended to use the folowing rule for template filenames.
+All template files must have `.tmpl` extension
+
+* Template layout
+base.layout.html
+
+* Pages
+If page needs a data from a databe table use this pattern : [dbtable].[action].tmpl
+
+```
+products view page : products.view.tmpl
+products create page : products.create.tmpl
+products edit page : products.edit.tmpl
+products delete page : products.delete.tmpl
+```
+
+Routes can use the same file depending how the template code is writen, for example :
+products create & edit page : `products.edit.tmpl (template has code to handle both)`
+
+Pages without data connection / static pages : [pagename].[action].tmpl
+
+page about : about.view.tmpl
+page contact : contact.view.tmpl
+
+* Home Page
+Same rule like all the above pages 
+
+page home : home.view.tmpl
 
 ## Basic Use
 

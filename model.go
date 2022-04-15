@@ -55,7 +55,7 @@ type Relation struct {
 type SQLJoin struct {
 	Foreign_table string
 	Foreign_PK    string
-	Foreign_key   string
+	KeyPair       SQLKeyPair
 	Join_type     JoinType
 }
 
@@ -67,6 +67,11 @@ type SQLTable struct {
 type SQLField struct {
 	FieldName string
 	Value     interface{}
+}
+
+type SQLKeyPair struct {
+	LocalKey   string
+	ForeignKey string
 }
 
 type Filter struct {
@@ -136,14 +141,14 @@ func (m *Model) AssignLabels(labels map[string]string) {
 }
 
 //add Foreign table (model)
-func (m *Model) AddRelation(db *sql.DB, tableName string, PKField string, foreing_key string, join_type JoinType, result_style ResultStyle) {
+func (m *Model) AddRelation(db *sql.DB, tableName string, PKField string, keys SQLKeyPair, join_type JoinType, result_style ResultStyle) {
 	fm := new(Model)
 	fm.InitModel(db, tableName, PKField)
 	if m.Relations == nil {
 		m.Relations = make([]Relation, 0)
 	}
 	m.Relations = append(m.Relations,
-		Relation{Join: SQLJoin{Foreign_table: tableName, Foreign_PK: PKField, Foreign_key: foreing_key, Join_type: join_type},
+		Relation{Join: SQLJoin{Foreign_table: tableName, Foreign_PK: PKField, KeyPair: keys, Join_type: join_type},
 			Foreign_model: *fm,
 			ResultStyle:   result_style},
 	)
@@ -203,7 +208,9 @@ func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 		SQLTable{TableName: m.TableName, PKField: m.PKField},
 		j, filters, "", "", limit)
 
+	//fmt.Println("QUERY:" + q)
 	r, err := m.DB.Query(q, values...)
+
 	if err != nil {
 		InfoMessage(q)
 		return []ResultRow{}, err
@@ -247,9 +254,11 @@ func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 		if len(m.Relations) > 0 {
 			for _, relation := range m.Relations {
 				if relation.ResultStyle == ResultStyleSubresult {
-					PKIndex := rr.GetFieldIndex(m.PKField)
+					//PKIndex := rr.GetFieldIndex(m.PKField)
+					PKIndex := rr.GetFieldIndex(relation.Join.KeyPair.LocalKey)
 					f := make([]Filter, 0)
-					f = append(f, Filter{Field: relation.Join.Foreign_key, Operator: "=", Value: rr.Values[PKIndex]})
+					//f = append(f, Filter{Field: relation.Join.Foreign_key, Operator: "=", Value: rr.Values[PKIndex]})
+					f = append(f, Filter{Field: relation.Join.KeyPair.ForeignKey, Operator: "=", Value: rr.Values[PKIndex]})
 					rel_rr, err := relation.Foreign_model.GetRecords(f, 0)
 					if err != nil {
 						return []ResultRow{}, err
@@ -317,7 +326,6 @@ func (m *Model) Execute(q string, values []interface{}) ([]ResultRow, error) {
 }
 
 //Execute save query
-//func (m *Model) Save(vals map[string]string) (bool, error) {
 func (m *Model) Save(fields []SQLField) (bool, error) {
 	if m == nil {
 		return false, errors.New("cannot perform action : Save() on nil model")
@@ -517,7 +525,7 @@ func BuildQuery(queryType QueryType, fields []SQLField, table SQLTable, joins []
 	//JOIN
 	for _, jn := range joins {
 		j = j + " " + string(jn.Join_type) + " JOIN " + jn.Foreign_table + " ON "
-		j = j + jn.Foreign_table + "." + jn.Foreign_key + "=" + table.TableName + "." + table.PKField
+		j = j + jn.Foreign_table + "." + jn.KeyPair.ForeignKey + "=" + table.TableName + "." + jn.KeyPair.LocalKey
 	}
 
 	//WHERE
