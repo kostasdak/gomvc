@@ -26,13 +26,16 @@ const (
 )
 
 type Model struct {
-	DB          *sql.DB
-	PKField     string
-	TableName   string
-	OrderString string
-	Fields      []string
-	Labels      map[string]string
-	Relations   []Relation
+	DB           *sql.DB
+	PKField      string
+	TableName    string
+	OrderString  string
+	Fields       []string
+	Labels       map[string]string
+	Relations    []Relation
+	DefaultQuery string
+	lastQuery    string
+	lastValues   []interface{}
 }
 
 type JoinType string
@@ -195,25 +198,40 @@ func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 		return []ResultRow{}, errors.New("cannot perform action : GetRecords() on nil model")
 	}
 
-	j := make([]SQLJoin, 0)
-	if len(m.Relations) > 0 {
-		for _, i := range m.Relations {
-			if i.ResultStyle == ResultStyleFullresult {
-				j = append(j, i.Join)
+	var r *sql.Rows
+	var err error
+
+	if len(m.DefaultQuery) == 0 {
+		j := make([]SQLJoin, 0)
+		if len(m.Relations) > 0 {
+			for _, i := range m.Relations {
+				if i.ResultStyle == ResultStyleFullresult {
+					j = append(j, i.Join)
+				}
 			}
 		}
-	}
 
-	q, values := BuildQuery(QueryTypeSelect, []SQLField{{FieldName: "*"}},
-		SQLTable{TableName: m.TableName, PKField: m.PKField},
-		j, filters, "", "", limit)
+		q, values := BuildQuery(QueryTypeSelect, []SQLField{{FieldName: "*"}},
+			SQLTable{TableName: m.TableName, PKField: m.PKField},
+			j, filters, "", "", limit)
 
-	//fmt.Println("QUERY:" + q)
-	r, err := m.DB.Query(q, values...)
+		//fmt.Println("QUERY:" + q)
+		m.lastQuery = q
+		m.lastValues = values
+		r, err = m.DB.Query(q, values...)
 
-	if err != nil {
-		InfoMessage(q)
-		return []ResultRow{}, err
+		if err != nil {
+			InfoMessage(q)
+			return []ResultRow{}, err
+		}
+	} else {
+		m.lastQuery = m.DefaultQuery
+		m.lastValues = make([]interface{}, 0)
+		r, err = m.DB.Query(m.DefaultQuery)
+		if err != nil {
+			InfoMessage(m.DefaultQuery)
+			return []ResultRow{}, err
+		}
 	}
 
 	typ, err := r.ColumnTypes()
@@ -282,7 +300,10 @@ func (m *Model) Execute(q string, values []interface{}) ([]ResultRow, error) {
 		return []ResultRow{}, errors.New("cannot perform action : Execute() on nil model")
 	}
 
+	m.lastQuery = q
+	m.lastValues = values
 	r, err := m.DB.Query(q, values...)
+
 	if err != nil {
 		return nil, err
 	}
