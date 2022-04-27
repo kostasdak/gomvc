@@ -44,16 +44,17 @@ Config Loader :`github.com/spf13/viper`</br>
 
 ## Features
 
-* Easy to use and build.
+* Easy to learn, use and build.
+* Flexibility and Customization
+* Embeded Authentication using database table if needed. 
 * Embeded libraries like : session managment, csrf middleware, http router
 * Embeded info log and server error handling
 * Strong MVC pattern
-* Flexibility and Customization
-* Models with many features and ready easy to use functions
+* Models with many features and easy to use functions
 * Models with build in relational functionlity with other database tables
 * Controlles with simple yet powerful http handling
-* Ability to attach our own functions to Controlles for http handling
-* Examples to cover almost every case.
+* Ability to attach our own functions to Controller and requests for more customized http handling
+* Working Examples to cover almost every case.
 
 ## Installation
 
