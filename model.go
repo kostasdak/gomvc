@@ -295,7 +295,7 @@ func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 }
 
 //Execute custon query
-func (m *Model) Execute(q string, values []interface{}) ([]ResultRow, error) {
+func (m *Model) Execute(q string, values ...interface{}) ([]ResultRow, error) {
 	if m == nil {
 		return []ResultRow{}, errors.New("cannot perform action : Execute() on nil model")
 	}
@@ -383,6 +383,7 @@ func (m *Model) Update(fields []SQLField, id string) (bool, error) {
 
 	stmt, err := m.DB.Prepare(q)
 	if err != nil {
+		InfoMessage(q)
 		return false, err
 	}
 

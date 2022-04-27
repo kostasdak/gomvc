@@ -28,11 +28,13 @@ const (
 	ActionCreate Action = 1
 	ActionUpdate Action = 2
 	ActionDelete Action = 3
+	//ActionAuth   Action = 9
 )
 
 type Action int
 
 var Session *scs.SessionManager
+var Auth AuthObject
 
 type Controller struct {
 	DB               *sql.DB
@@ -46,10 +48,16 @@ type Controller struct {
 }
 
 type controllerOptions struct {
-	next     string
-	action   Action
-	method   int
-	hasTable bool
+	next      string
+	action    Action
+	hasTable  bool
+	needsAuth bool
+}
+
+type ActionRouting struct {
+	URL       string
+	NextURL   string
+	NeedsAuth bool
 }
 
 type RequestObject struct {
@@ -107,11 +115,32 @@ func sessionLoad(next http.Handler) http.Handler {
 	return Session.LoadAndSave(next)
 }
 
+// Controller URL key function
+func (r *ActionRouting) getControllerOptionsKey(action Action) string {
+	cKey := r.URL
+	if strings.Contains(r.URL, "*") {
+		cKey = strings.Replace(r.URL, "*", "", 1)
+	}
+	if strings.Contains(r.URL, "{id}") {
+		cKey = strings.Replace(r.URL, "{id}", "", 1)
+	}
+	//cKey = cKey + "-" + fmt.Sprint(action)
+
+	return cKey
+}
+
+// return session manager
 func (c *Controller) GetSession() *scs.SessionManager {
 	return Session
 }
 
-func (c *Controller) RegisterAction(route string, next string, action Action, model *Model) {
+//return Authobject
+func (c *Controller) GetAuthObject() *AuthObject {
+	return &Auth
+}
+
+// register controller action - route, next, action and model
+func (c *Controller) RegisterAction(route ActionRouting, action Action, model *Model) {
 	if c.Router == nil {
 		log.Fatal("Controller is not initialized")
 		return
@@ -124,11 +153,13 @@ func (c *Controller) RegisterAction(route string, next string, action Action, mo
 	}
 
 	hasTable := false
-	cKey := strings.Replace(route, "*", "", 1)
+	cKey := route.getControllerOptionsKey(action)
+
+	fmt.Println("Registering route :", route.URL, " -> ", cKey)
 
 	if model != nil {
 		if len(model.Fields) == 0 {
-			err := model.InitModel(c.DB, model.TableName, "id")
+			err := model.InitModel(c.DB, model.TableName, model.PKField)
 			if err != nil {
 				err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
 				ServerError(nil, err)
@@ -141,25 +172,68 @@ func (c *Controller) RegisterAction(route string, next string, action Action, mo
 		hasTable = true
 	}
 
-	c.Options[cKey] = controllerOptions{next: next, action: action, hasTable: hasTable}
-	//fmt.Println(cKey)
+	c.Options[cKey] = controllerOptions{next: route.NextURL, action: action, hasTable: hasTable, needsAuth: route.NeedsAuth}
 
 	if action == ActionView {
-		c.Router.Get(route, c.viewAction)
+		c.Router.Get(route.URL, c.viewAction)
 	}
 	if action == ActionCreate {
-		c.Router.Post(route, c.createAction)
+		c.Router.Post(route.URL, c.createAction)
 	}
 	if action == ActionUpdate {
-		c.Router.Post(route, c.updateAction)
+		c.Router.Post(route.URL, c.updateAction)
 	}
 	if action == ActionDelete {
-		c.Router.Post(route, c.deleteAction)
+		c.Router.Post(route.URL, c.deleteAction)
 	}
 }
 
+func (c *Controller) RegisterAuthAction(authURL string, nextURL string, model *Model, authObject AuthObject) {
+	if c.Router == nil {
+		log.Fatal("Controller is not initialized")
+		return
+	}
+	if model == nil {
+		log.Fatal("AUth Controller needs model")
+		return
+	}
+	if c.Options == nil {
+		c.Options = make(map[string]controllerOptions, 0)
+	}
+	if c.Models == nil {
+		c.Models = make(map[string]*Model, 0)
+	}
+
+	route := ActionRouting{URL: authURL, NeedsAuth: true}
+
+	cKey := route.getControllerOptionsKey(9)
+	authObject.authURL = authURL
+	Auth = authObject
+
+	fmt.Println("Registering Auth route :", route.URL, " -> ", cKey)
+
+	if len(model.Fields) == 0 {
+		err := model.InitModel(c.DB, model.TableName, model.PKField)
+		if err != nil {
+			err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
+			ServerError(nil, err)
+			log.Fatal()
+			return
+		}
+	}
+	c.Models[cKey] = model
+
+	c.Options[cKey] = controllerOptions{next: nextURL, action: 9, hasTable: true}
+
+	// View
+	c.Router.Get(authURL, c.viewAction)
+
+	// Post username / password / credentials
+	c.Router.Post(authURL, c.authAction)
+}
+
 //Register route -> responsible for processing requests and generating responses
-func (c *Controller) RegisterCustomAction(route string, next string, method int, model *Model, f http.HandlerFunc) {
+func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model *Model, f http.HandlerFunc) {
 	if c.Router == nil {
 		log.Fatal("Controller is not initialized")
 		return
@@ -172,11 +246,11 @@ func (c *Controller) RegisterCustomAction(route string, next string, method int,
 	}
 
 	hasTable := false
-	cKey := strings.Replace(route, "*", "", 1)
+	cKey := route.getControllerOptionsKey(Action(method))
 
 	if model != nil {
 		if len(model.Fields) == 0 {
-			err := model.InitModel(c.DB, model.TableName, "id")
+			err := model.InitModel(c.DB, model.TableName, model.PKField)
 			if err != nil {
 				err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
 				ServerError(nil, err)
@@ -190,13 +264,13 @@ func (c *Controller) RegisterCustomAction(route string, next string, method int,
 		hasTable = true
 	}
 
-	c.Options[cKey] = controllerOptions{next: next, action: 0, method: method, hasTable: hasTable}
+	c.Options[cKey] = controllerOptions{next: route.NextURL, action: 0, hasTable: hasTable}
 
 	if method == HttpGET {
-		c.Router.Get(route, f)
+		c.Router.Get(route.URL, f)
 	}
 	if method == HttpPOST {
-		c.Router.Post(route, f)
+		c.Router.Post(route.URL, f)
 	}
 }
 
@@ -329,6 +403,104 @@ func exportControllerAndAction(urlFirstPart string) (string, string, string, str
 	return cntrlr, action, params, baseUrl
 }
 
+func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	Session.RenewToken(r.Context())
+
+	rObj := parseRequest(r, c.TemplateHomePage)
+
+	cOptions, ok := c.Options[rObj.baseUrl]
+	if !ok {
+		err = errors.New("controller has no options, URL : " + rObj.baseUrl)
+		ServerError(w, err)
+		return
+	}
+
+	m := c.Models[rObj.baseUrl]
+
+	// Build filter -> only for primary key
+	f := make([]Filter, 0)
+	username := r.Form.Get(Auth.UsernameFieldName)
+	password := r.Form.Get(Auth.PasswordFieldName)
+
+	if len(username) == 0 || len(password) == 0 {
+		err = errors.New("POST does not include credential values, URL : " + rObj.baseUrl)
+		ServerError(w, err)
+		return
+	}
+
+	f = append(f, Filter{Field: m.TableName + "." + Auth.UsernameFieldName, Operator: "=", Value: username})
+	if len(Auth.ExtraConditions) > 0 {
+		for _, v := range Auth.ExtraConditions {
+			f = append(f, Filter{Field: v.Field, Operator: v.Operator, Value: v.Value, Logic: "AND"})
+		}
+	}
+
+	//Get single row
+	rr, err := m.GetRecords(f, 1)
+	if err != nil {
+		ServerError(w, err)
+		return
+	}
+
+	if len(rr) > 0 {
+		//fmt.Println(rr)
+		//uIndx := rr[0].GetFieldIndex(cOptions.auth.UsernameFiledName)
+		pIndx := rr[0].GetFieldIndex(Auth.PasswordFieldName)
+		storedPass := fmt.Sprint(rr[0].Values[pIndx])
+		idIndx := rr[0].GetFieldIndex(m.PKField)
+
+		if Auth.CheckPasswordHash(password, storedPass) {
+			token := Auth.TokenGenerator()
+
+			// build fields
+			var fields []SQLField
+			fields = append(fields, SQLField{FieldName: Auth.HashCodeFieldName, Value: token})
+			fields = append(fields, SQLField{FieldName: Auth.ExpTimeFieldName, Value: Auth.GetExpirationFromNow()})
+
+			_, err = m.Update(fields, fmt.Sprint(rr[0].Values[idIndx]))
+
+			if err != nil {
+				ServerError(w, err)
+				return
+			}
+
+			// Log messages
+			InfoMessage("Logged in successful")
+			if len(Auth.LoggedInMessage) > 0 {
+
+				Session.Put(r.Context(), "flash", Auth.LoggedInMessage)
+			}
+
+			//store session token
+			Session.Put(r.Context(), Auth.SessionKey, token)
+
+			if len(cOptions.next) > 0 {
+				http.Redirect(w, r, string(cOptions.next), http.StatusSeeOther)
+			} else {
+				c.viewAction(w, r)
+			}
+		} else {
+			// wrong password
+			InfoMessage("Login Fail")
+			if len(Auth.LoginFailMessage) > 0 {
+				Session.Put(r.Context(), "error", Auth.LoginFailMessage)
+			}
+			c.viewAction(w, r)
+			return
+		}
+	} else {
+		// user not found
+		InfoMessage("Login Fail")
+		if len(Auth.LoginFailMessage) > 0 {
+			Session.Put(r.Context(), "error", Auth.LoginFailMessage)
+		}
+		c.viewAction(w, r)
+		return
+	}
+}
+
 // View Action --- GET ---
 func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	var rr []ResultRow
@@ -338,9 +510,24 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 
 	cOptions, ok := c.Options[rObj.baseUrl]
 	if !ok {
-		err = errors.New("controller has no options")
+		err = errors.New("controller has no options, URL : " + rObj.baseUrl)
 		ServerError(w, err)
 		return
+	}
+
+	// Auth process
+	if cOptions.needsAuth {
+		if len(Auth.SessionKey) > 0 {
+
+			exp, err := Auth.IsSessionExpired(r)
+			if err != nil {
+				ServerError(w, err)
+				return
+			}
+			if exp {
+				http.Redirect(w, r, Auth.authURL, http.StatusSeeOther)
+			}
+		}
 	}
 
 	if cOptions.hasTable {
@@ -391,7 +578,7 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	/* Get page template from name */
 	page := rObj.cntrlr + "." + rObj.action + ".tmpl"
 
-	InfoMessage("Action View : " + page + " URL : " + rObj.baseUrl + " params : " + fmt.Sprint(rObj.params))
+	InfoMessage(" - File : " + page + " - URL : " + rObj.baseUrl + " - Params : " + fmt.Sprint(rObj.params))
 
 	var t *template.Template
 	if c.Config.UseCache {
@@ -451,6 +638,22 @@ func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 		ServerError(w, err)
 		return
 	}
+
+	// Auth process
+	if cOptions.needsAuth {
+		if len(Auth.SessionKey) > 0 {
+
+			exp, err := Auth.IsSessionExpired(r)
+			if err != nil {
+				ServerError(w, err)
+				return
+			}
+			if exp {
+				http.Redirect(w, r, Auth.authURL, http.StatusSeeOther)
+			}
+		}
+	}
+
 	if !cOptions.hasTable {
 		err = errors.New("this action (createAction) needs a database table")
 		ServerError(w, err)
@@ -500,6 +703,22 @@ func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 		ServerError(w, err)
 		return
 	}
+
+	// Auth process
+	if cOptions.needsAuth {
+		if len(Auth.SessionKey) > 0 {
+
+			exp, err := Auth.IsSessionExpired(r)
+			if err != nil {
+				ServerError(w, err)
+				return
+			}
+			if exp {
+				http.Redirect(w, r, Auth.authURL, http.StatusSeeOther)
+			}
+		}
+	}
+
 	if !cOptions.hasTable {
 		err = errors.New("this action (updateAction) needs a database table")
 		ServerError(w, err)
@@ -557,6 +776,22 @@ func (c *Controller) deleteAction(w http.ResponseWriter, r *http.Request) {
 		ServerError(w, err)
 		return
 	}
+
+	// Auth process
+	if cOptions.needsAuth {
+		if len(Auth.SessionKey) > 0 {
+
+			exp, err := Auth.IsSessionExpired(r)
+			if err != nil {
+				ServerError(w, err)
+				return
+			}
+			if exp {
+				http.Redirect(w, r, Auth.authURL, http.StatusSeeOther)
+			}
+		}
+	}
+
 	if !cOptions.hasTable {
 		err = errors.New("this action (updateAction) needs a database table")
 		ServerError(w, err)
