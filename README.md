@@ -354,4 +354,4 @@ func ContactPostForm(w http.ResponseWriter, r *http.Request) {
 [Example 03](https://github.com/kostasdak/go-mvc-example-3) - gomvc Auth example, two tables related [products]->[colors] (one-to-many relation)
 
 
-TO DO : more links, more examples
+TO DO : more examples
