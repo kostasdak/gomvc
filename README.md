@@ -77,7 +77,9 @@ All template files must have `.tmpl` extension
 This file is the layout of your app `base.layout.html`
 
 * Pages</br>
-If page needs a data from a databese table use this pattern : `[dbtable].[action].tmpl`
+If a page needs a data from a databese table use this pattern : `[dbtable].[action].tmpl`
+If a page is a static page you can use this pattern : `[dbtable].view.tmpl`
+
 
 ```
 products view page : products.view.tmpl
