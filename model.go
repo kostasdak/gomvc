@@ -1,6 +1,7 @@
 package gomvc
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"strconv"
@@ -178,6 +179,7 @@ func (m *Model) GetLastId() (int64, error) {
 		[]SQLJoin{}, []Filter{}, "", "ORDER BY "+m.PKField+" DESC", 1)
 
 	r, err := m.DB.Query(q)
+
 	if err != nil {
 		return 0, err
 	}
@@ -218,8 +220,8 @@ func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 		//fmt.Println("QUERY:" + q)
 		m.lastQuery = q
 		m.lastValues = values
-		r, err = m.DB.Query(q, values...)
 
+		r, err = m.DB.Query(q, values...)
 		if err != nil {
 			InfoMessage(q)
 			return []ResultRow{}, err
@@ -355,21 +357,18 @@ func (m *Model) Save(fields []SQLField) (bool, error) {
 	q, values := BuildQuery(QueryTypeInsert, fields,
 		SQLTable{TableName: m.TableName, PKField: m.PKField}, []SQLJoin{}, []Filter{}, "", "", 0)
 
-	stmt, err := m.DB.Prepare(q)
-	if err != nil {
-		return false, err
-	}
-
-	defer stmt.Close()
-
-	_, err = stmt.Exec(values...)
-
+	success, err := performCRUD(m, q, values)
 	if err != nil {
 		InfoMessage(q)
 		return false, err
 	}
 
-	return false, nil
+	if success {
+		return true, nil
+	}
+
+	InfoMessage(q)
+	return false, errors.New("unknown eror occured, check your sql sytax statement")
 }
 
 //Execute update query
@@ -381,22 +380,18 @@ func (m *Model) Update(fields []SQLField, id string) (bool, error) {
 	q, values := BuildQuery(QueryTypeUpdate, fields,
 		SQLTable{TableName: m.TableName, PKField: m.PKField}, []SQLJoin{}, []Filter{{Field: m.PKField, Operator: "=", Value: id}}, "", "", 0)
 
-	stmt, err := m.DB.Prepare(q)
+	success, err := performCRUD(m, q, values)
 	if err != nil {
 		InfoMessage(q)
 		return false, err
 	}
 
-	defer stmt.Close()
-
-	_, err = stmt.Exec(values...)
-
-	if err != nil {
-		InfoMessage(q)
-		return false, err
+	if success {
+		return true, nil
 	}
 
-	return false, nil
+	InfoMessage(q)
+	return false, errors.New("unknown eror occured, check your sql sytax statement")
 }
 
 //Execute delete query
@@ -408,6 +403,32 @@ func (m *Model) Delete(id string) (bool, error) {
 	q, values := BuildQuery(QueryTypeDelete, []SQLField{},
 		SQLTable{TableName: m.TableName, PKField: m.PKField}, []SQLJoin{}, []Filter{{Field: m.PKField, Operator: "=", Value: id}}, "", "", 0)
 
+	success, err := performCRUD(m, q, values)
+	if err != nil {
+		InfoMessage(q)
+		return false, err
+	}
+
+	if success {
+		return true, nil
+	}
+
+	InfoMessage(q)
+	return false, errors.New("unknown eror occured, check your sql sytax statement")
+}
+
+func performCRUD(m *Model, q string, values []interface{}) (bool, error) {
+	// Create context
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	/*conn, err := m.DB.Conn(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()*/
+
+	// prepare
 	stmt, err := m.DB.Prepare(q)
 	if err != nil {
 		return false, err
@@ -415,7 +436,8 @@ func (m *Model) Delete(id string) (bool, error) {
 
 	defer stmt.Close()
 
-	_, err = stmt.Exec(values...)
+	//execute
+	_, err = stmt.ExecContext(ctx, values...)
 
 	if err != nil {
 		InfoMessage(q)
@@ -525,6 +547,7 @@ func constructField(ct *sql.ColumnType, val interface{}) (interface{}, error) {
 	return nil, nil
 }
 
+//Build quey func
 func BuildQuery(queryType QueryType, fields []SQLField, table SQLTable, joins []SQLJoin, wheres []Filter, group string, order string, limit int64) (string, []interface{}) {
 	q := ""
 	s := ""
