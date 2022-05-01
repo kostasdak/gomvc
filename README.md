@@ -73,11 +73,11 @@ Note: If you're using the traditional `GOPATH` mechanism to manage dependencies,
 It is recomended to use the folowing rule for template filenames.
 All template files must have `.tmpl` extension
 
-* Template layout
-base.layout.html
+* Template layout</br>
+This file is the layout of your app `base.layout.html`
 
-* Pages
-If page needs a data from a databe table use this pattern : [dbtable].[action].tmpl
+* Pages</br>
+If page needs a data from a databese table use this pattern : `[dbtable].[action].tmpl`
 
 ```
 products view page : products.view.tmpl
