@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+type JoinType string
+type ResultStyle int
+type QueryType string
+
 const (
 	ModelJoinInner JoinType = "INNER"
 	ModelJoinLeft  JoinType = "LEFT"
@@ -38,10 +42,6 @@ type Model struct {
 	lastQuery    string
 	lastValues   []interface{}
 }
-
-type JoinType string
-type ResultStyle int
-type QueryType string
 
 type ResultRow struct {
 	Values    []interface{}
@@ -357,7 +357,7 @@ func (m *Model) Save(fields []SQLField) (bool, error) {
 	q, values := BuildQuery(QueryTypeInsert, fields,
 		SQLTable{TableName: m.TableName, PKField: m.PKField}, []SQLJoin{}, []Filter{}, "", "", 0)
 
-	success, err := performCRUD(m, q, values)
+	success, err := executeWithContext(m, q, values)
 	if err != nil {
 		InfoMessage(q)
 		return false, err
@@ -380,7 +380,7 @@ func (m *Model) Update(fields []SQLField, id string) (bool, error) {
 	q, values := BuildQuery(QueryTypeUpdate, fields,
 		SQLTable{TableName: m.TableName, PKField: m.PKField}, []SQLJoin{}, []Filter{{Field: m.PKField, Operator: "=", Value: id}}, "", "", 0)
 
-	success, err := performCRUD(m, q, values)
+	success, err := executeWithContext(m, q, values)
 	if err != nil {
 		InfoMessage(q)
 		return false, err
@@ -403,7 +403,7 @@ func (m *Model) Delete(id string) (bool, error) {
 	q, values := BuildQuery(QueryTypeDelete, []SQLField{},
 		SQLTable{TableName: m.TableName, PKField: m.PKField}, []SQLJoin{}, []Filter{{Field: m.PKField, Operator: "=", Value: id}}, "", "", 0)
 
-	success, err := performCRUD(m, q, values)
+	success, err := executeWithContext(m, q, values)
 	if err != nil {
 		InfoMessage(q)
 		return false, err
@@ -417,18 +417,12 @@ func (m *Model) Delete(id string) (bool, error) {
 	return false, errors.New("unknown eror occured, check your sql sytax statement")
 }
 
-func performCRUD(m *Model, q string, values []interface{}) (bool, error) {
+func executeWithContext(m *Model, q string, values []interface{}) (bool, error) {
 	// Create context
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	/*conn, err := m.DB.Conn(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()*/
-
-	// prepare
+	// Prepare
 	stmt, err := m.DB.Prepare(q)
 	if err != nil {
 		return false, err
@@ -436,7 +430,7 @@ func performCRUD(m *Model, q string, values []interface{}) (bool, error) {
 
 	defer stmt.Close()
 
-	//execute
+	// Execute
 	_, err = stmt.ExecContext(ctx, values...)
 
 	if err != nil {
