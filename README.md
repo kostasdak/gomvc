@@ -88,18 +88,18 @@ products edit page : products.edit.tmpl
 products delete page : products.delete.tmpl
 ```
 
-Routes can use the same file depending how the template code is writen, for example :
-products create & edit page : `products.edit.tmpl (template has code to handle both)`
+Routes can use the same file depending how the template code is writen, for example :</br>
+products create & edit page : `products.edit.tmpl (template code can handle both)`</br>
 
-Pages without data connection / static pages : [pagename].[action].tmpl
+Pages without data connection / static pages : [pagename].[action].tmpl</br>
 
-page about : about.view.tmpl
-page contact : contact.view.tmpl
+page about : about.view.tmpl</br>
+page contact : contact.view.tmpl</br>
 
-* Home Page
-Same rule like all the above pages 
+* Home Page</br>
+Same rule like all the above pages </br>
 
-page home : home.view.tmpl
+page home : home.view.tmpl</br>
 
 ## Basic Use
 
