@@ -8,13 +8,14 @@ import (
 )
 
 type TemplateData struct {
-	Model     Model
-	Result    []ResultRow
-	URLParams map[string][]interface{}
-	CSRFToken string
-	Flash     string
-	Warning   string
-	Error     string
+	Model        Model
+	Result       []ResultRow
+	URLParams    map[string][]interface{}
+	CustomValues map[string][]interface{}
+	CSRFToken    string
+	Flash        string
+	Warning      string
+	Error        string
 }
 
 //View provides a set of methods (e.g. render()) for rendering purpose.

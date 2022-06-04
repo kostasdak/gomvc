@@ -318,14 +318,36 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 	return nil
 }
 
-// addTemplateData adds data for all templates
-func (c *Controller) addTemplateData(td TemplateData, r *http.Request) TemplateData {
+// AddTemplateData adds data for all templates
+func (c *Controller) AddTemplateData(td TemplateData, r *http.Request) TemplateData {
 	td.Flash = Session.PopString(r.Context(), "flash")
 	td.Error = Session.PopString(r.Context(), "error")
 	td.Warning = Session.PopString(r.Context(), "warning")
 
 	td.CSRFToken = nosurf.Token(r)
 	return td
+}
+
+func (c *Controller) GetTemplate(page string) (*template.Template, error) {
+	to, ok := c.TemplateCache[page]
+	if !ok {
+		//template not found because link exists but template file not .. this is fatal error
+		err := errors.New("could not get template from template cache")
+		return nil, err
+	}
+
+	pagefilename := to.filename
+	t, err := template.New(page).Funcs(functions).ParseFiles(pagefilename)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err = t.ParseGlob("./web/templates/" + c.TemplateLayout)
+	if err != nil {
+		return nil, err
+	}
+
+	return t, nil
 }
 
 // (string, string, string, map[string][]interface{})
@@ -591,22 +613,7 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 		}
 		t = to.template
 	} else {
-		to, ok := c.TemplateCache[page]
-		if !ok {
-			//template not found because link exists but template file not .. this is fatal error
-			err = errors.New("could not get template from template cache")
-			ServerError(w, err)
-			return
-		}
-
-		pagefilename := to.filename
-		t, err = template.New(page).Funcs(functions).ParseFiles(pagefilename)
-		if err != nil {
-			ServerError(w, err)
-			return
-		}
-
-		t, err = t.ParseGlob("./web/templates/" + c.TemplateLayout)
+		t, err = c.GetTemplate(page)
 		if err != nil {
 			ServerError(w, err)
 			return
@@ -621,7 +628,7 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 		td.Model = m.Instance()
 	}
 
-	td = c.addTemplateData(td, r)
+	td = c.AddTemplateData(td, r)
 
 	View(t, w, &td)
 }

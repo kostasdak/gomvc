@@ -144,7 +144,7 @@ func (m *Model) AssignLabels(labels map[string]string) {
 	m.Labels = labels
 }
 
-//add Foreign table (model)
+//Add Foreign table (model)
 func (m *Model) AddRelation(db *sql.DB, tableName string, PKField string, keys SQLKeyPair, join_type JoinType, result_style ResultStyle) {
 	fm := new(Model)
 	fm.InitModel(db, tableName, PKField)
