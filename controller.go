@@ -58,7 +58,7 @@ type ActionRouting struct {
 	URL       string
 	NextURL   string
 	NeedsAuth bool
-	isWebHook bool
+	IsWebHook bool
 }
 
 type RequestObject struct {
@@ -267,7 +267,7 @@ func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model
 	c.Options[cKey] = controllerOptions{next: route.NextURL, action: 0, hasTable: hasTable}
 
 	if method == HttpGET {
-		if route.isWebHook {
+		if route.IsWebHook {
 			c.Router.Get(route.URL, f)
 		} else {
 			c.Router.With(noSurf).Get(route.URL, f)
@@ -275,7 +275,7 @@ func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model
 
 	}
 	if method == HttpPOST {
-		if route.isWebHook {
+		if route.IsWebHook {
 			c.Router.Post(route.URL, f)
 		} else {
 			c.Router.With(noSurf).Post(route.URL, f)
