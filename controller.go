@@ -58,6 +58,7 @@ type ActionRouting struct {
 	URL       string
 	NextURL   string
 	NeedsAuth bool
+	isWebHook bool
 }
 
 type RequestObject struct {
@@ -84,7 +85,6 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	c.DB = db
 	c.Config = cfg
 	c.Router = chi.NewRouter()
-	c.Router.Use(noSurf)
 
 	Session = scs.New()
 	Session.Lifetime = 24 * time.Hour
@@ -175,16 +175,16 @@ func (c *Controller) RegisterAction(route ActionRouting, action Action, model *M
 	c.Options[cKey] = controllerOptions{next: route.NextURL, action: action, hasTable: hasTable, needsAuth: route.NeedsAuth}
 
 	if action == ActionView {
-		c.Router.Get(route.URL, c.viewAction)
+		c.Router.With(noSurf).Get(route.URL, c.viewAction)
 	}
 	if action == ActionCreate {
-		c.Router.Post(route.URL, c.createAction)
+		c.Router.With(noSurf).Post(route.URL, c.createAction)
 	}
 	if action == ActionUpdate {
-		c.Router.Post(route.URL, c.updateAction)
+		c.Router.With(noSurf).Post(route.URL, c.updateAction)
 	}
 	if action == ActionDelete {
-		c.Router.Post(route.URL, c.deleteAction)
+		c.Router.With(noSurf).Post(route.URL, c.deleteAction)
 	}
 }
 
@@ -226,10 +226,10 @@ func (c *Controller) RegisterAuthAction(authURL string, nextURL string, model *M
 	c.Options[cKey] = controllerOptions{next: nextURL, action: 9, hasTable: true}
 
 	// View
-	c.Router.Get(authURL, c.viewAction)
+	c.Router.With(noSurf).Get(authURL, c.viewAction)
 
 	// Post username / password / credentials
-	c.Router.Post(authURL, c.authAction)
+	c.Router.With(noSurf).Post(authURL, c.authAction)
 }
 
 //Register route -> responsible for processing requests and generating responses
@@ -267,10 +267,19 @@ func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model
 	c.Options[cKey] = controllerOptions{next: route.NextURL, action: 0, hasTable: hasTable}
 
 	if method == HttpGET {
-		c.Router.Get(route.URL, f)
+		if route.isWebHook {
+			c.Router.Get(route.URL, f)
+		} else {
+			c.Router.With(noSurf).Get(route.URL, f)
+		}
+
 	}
 	if method == HttpPOST {
-		c.Router.Post(route.URL, f)
+		if route.isWebHook {
+			c.Router.Post(route.URL, f)
+		} else {
+			c.Router.With(noSurf).Post(route.URL, f)
+		}
 	}
 }
 
