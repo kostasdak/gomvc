@@ -10,15 +10,15 @@ import (
 
 type AppConfig struct {
 	UseCache         bool
-	Server           ServerConf   `mapstructure:"server"`
-	Database         DatabaseConf `mapstructure:"database"`
+	Server           ServerConf
+	Database         DatabaseConf
 	EnableInfoLog    bool
 	ShowStackOnError bool
 }
 
 type ServerConf struct {
-	Port          int  // Server port
-	SessionSecure bool //http / https
+	Port          int
+	SessionSecure bool
 }
 
 type DatabaseConf struct {
