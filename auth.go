@@ -29,8 +29,6 @@ type AuthCondition struct {
 	Value    string
 }
 
-// Create midleware handler ->
-
 func (a *AuthObject) GetExpirationFromNow() time.Time {
 	return time.Now().UTC().Add(a.ExpireAfterIdle)
 }

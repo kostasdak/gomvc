@@ -19,7 +19,6 @@ func InitHelpers(appcfg *AppConfig) {
 }
 
 func ServerError(w http.ResponseWriter, err error) {
-	//TODO : Write to file
 	var text string
 	if cfg.ShowStackOnError {
 		text = fmt.Sprintf("%s\n%s", err.Error(), debug.Stack())
@@ -34,7 +33,6 @@ func ServerError(w http.ResponseWriter, err error) {
 }
 
 func InfoMessage(info string) {
-	//TODO : Write to file
 	if cfg.EnableInfoLog {
 		infoLog.Println(info)
 	}
