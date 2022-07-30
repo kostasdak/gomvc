@@ -320,7 +320,6 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 		}
 
 		myCache[name] = TemplateObject{template: ts, filename: page}
-
 	}
 
 	c.TemplateCache = myCache
@@ -352,6 +351,28 @@ func (c *Controller) GetTemplate(page string) (*template.Template, error) {
 	}
 
 	t, err = t.ParseGlob("./web/templates/" + c.TemplateLayout)
+	if err != nil {
+		return nil, err
+	}
+
+	return t, nil
+}
+
+func (c *Controller) GetUnderConstructionTemplate(page string) (*template.Template, error) {
+	to, ok := c.TemplateCache[page]
+	if !ok {
+		//template not found because link exists but template file not .. this is fatal error
+		err := errors.New("could not get UnderConstruction template from template cache")
+		return nil, err
+	}
+
+	pagefilename := to.filename
+	t, err := template.New(page).Funcs(functions).ParseFiles(pagefilename)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err = t.ParseGlob("./web/templates/" + "underconstruction.layout.html")
 	if err != nil {
 		return nil, err
 	}
@@ -639,6 +660,17 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 
 	td = c.AddTemplateData(td, r)
 
+	uc := c.Config.GetValue("UnderConstruction")
+
+	if uc != nil {
+		if uc == true {
+			t, err = c.GetUnderConstructionTemplate("underconstruction.view.tmpl")
+			if err != nil {
+				ServerError(w, err)
+				return
+			}
+		}
+	}
 	View(t, w, &td)
 }
 
