@@ -37,14 +37,16 @@ var Session *scs.SessionManager
 var Auth AuthObject
 
 type Controller struct {
-	DB               *sql.DB
-	Models           map[string]*Model
-	TemplateCache    map[string]TemplateObject
-	TemplateLayout   string
-	TemplateHomePage string
-	Options          map[string]controllerOptions
-	Router           *chi.Mux
-	Config           *AppConfig
+	DB                      *sql.DB
+	Models                  map[string]*Model
+	TemplateCache           map[string]TemplateObject
+	TemplateLayout          string
+	TemplateHomePage        string
+	UnderConstructionLayout string
+	UnderConstructionPage   string
+	Options                 map[string]controllerOptions
+	Router                  *chi.Mux
+	Config                  *AppConfig
 }
 
 type controllerOptions struct {
@@ -350,6 +352,7 @@ func (c *Controller) GetTemplate(page string) (*template.Template, error) {
 		return nil, err
 	}
 
+	// Layout file
 	t, err = t.ParseGlob("./web/templates/" + c.TemplateLayout)
 	if err != nil {
 		return nil, err
@@ -372,7 +375,8 @@ func (c *Controller) GetUnderConstructionTemplate(page string) (*template.Templa
 		return nil, err
 	}
 
-	t, err = t.ParseGlob("./web/templates/" + "underconstruction.layout.html")
+	// Layout file
+	t, err = t.ParseGlob("./web/templates/" + c.UnderConstructionLayout)
 	if err != nil {
 		return nil, err
 	}
@@ -660,18 +664,7 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 
 	td = c.AddTemplateData(td, r)
 
-	uc := c.Config.GetValue("UnderConstruction")
-
-	if uc != nil {
-		if uc == true {
-			t, err = c.GetUnderConstructionTemplate("underconstruction.view.tmpl")
-			if err != nil {
-				ServerError(w, err)
-				return
-			}
-		}
-	}
-	View(t, w, &td)
+	c.View(t, &td, w, r)
 }
 
 // Create Action --- POST ---

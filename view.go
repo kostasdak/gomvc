@@ -2,8 +2,10 @@ package gomvc
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"text/template"
 )
 
@@ -19,7 +21,43 @@ type TemplateData struct {
 }
 
 //View provides a set of methods (e.g. render()) for rendering purpose.
-func View(t *template.Template, w http.ResponseWriter, td *TemplateData) {
+func (c *Controller) View(t *template.Template, td *TemplateData, w http.ResponseWriter, r *http.Request) {
+
+	uc := c.Config.GetValue("UnderConstruction")
+	if uc != nil {
+		if uc == true {
+
+			InfoMessage("Site is under construction ... redirecting to Underconstruction page")
+			tmp := strings.Split(r.RemoteAddr, ":")
+			rip := ""
+			if len(tmp) > 0 {
+				rip = tmp[0]
+			}
+			exipsval := c.Config.GetValue("ExcludeIPs")
+			if exipsval != nil {
+				exips := strings.Split(fmt.Sprint(exipsval), ",")
+				if len(exips) > 0 {
+					for _, ip := range exips {
+						ip = strings.Trim(ip, " ")
+						if ip == rip {
+							InfoMessage("Request ip found in exclude list : " + ip)
+							uc = false
+						}
+					}
+				}
+			}
+
+			if uc == true {
+				ut, err := c.GetUnderConstructionTemplate(c.UnderConstructionPage)
+				if err != nil {
+					ServerError(w, err)
+					return
+				}
+				t = ut
+			}
+		}
+	}
+
 	/* Execute template */
 	buf := new(bytes.Buffer)
 
