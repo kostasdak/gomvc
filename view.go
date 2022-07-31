@@ -28,11 +28,20 @@ func (c *Controller) View(t *template.Template, td *TemplateData, w http.Respons
 		if uc == true {
 
 			InfoMessage("Site is under construction ... redirecting to Underconstruction page")
+			InfoMessage("Remote Address : " + r.RemoteAddr)
+			InfoMessage("X-Forwarded-For : " + r.Header.Get("X-Forwarded-For"))
+
 			tmp := strings.Split(r.RemoteAddr, ":")
 			rip := ""
 			if len(tmp) > 0 {
 				rip = tmp[0]
 			}
+
+			proxyIP := r.Header.Get("X-Forwarded-For")
+			if rip == "127.0.0.1" && proxyIP != "" {
+				rip = proxyIP
+			}
+
 			exipsval := c.Config.GetValue("ExcludeIPs")
 			if exipsval != nil {
 				exips := strings.Split(fmt.Sprint(exipsval), ",")
