@@ -39,7 +39,6 @@ MySql Driver : `github.com/go-sql-driver/mysql`</br>
 http Router : `github.com/go-chi/chi/v5`</br>
 csrf middleware :`github.com/justinas/nosurf`</br>
 Session middleware : `github.com/alexedwards/scs/v2`</br>
-Config Loader :`github.com/spf13/viper`</br>
 </br>
 
 ## Features
@@ -356,4 +355,4 @@ func ContactPostForm(w http.ResponseWriter, r *http.Request) {
 [Example 03](https://github.com/kostasdak/go-mvc-example-3) - gomvc Auth example, two tables related [products]->[colors] (one-to-many relation)
 
 
-TO DO : more examples
+More examples comming soon ...
