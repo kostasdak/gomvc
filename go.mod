@@ -2,7 +2,7 @@ module github.com/kostasdak/gomvc
 
 go 1.17
 
-require golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+require golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 
 require (
 	github.com/alexedwards/scs/v2 v2.5.0
