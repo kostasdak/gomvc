@@ -18,6 +18,7 @@ import (
 	"github.com/justinas/nosurf"
 )
 
+// HttpGET, HttpPOST constants are helping the use of the package when it comes to the type of request
 const (
 	HttpGET  int = 0
 	HttpPOST int = 1
@@ -28,14 +29,22 @@ const (
 	ActionCreate Action = 1
 	ActionUpdate Action = 2
 	ActionDelete Action = 3
-	//ActionAuth   Action = 9
 )
 
+// Action defines the type of action to execute from a handler.
+// ActionVew = return data to http client
+// ActionCreate, ActionUpdate, ActionDelete = create, update, delete records from database,
+// this action are more likeky to accompaned with an ActionView action so they return a result to the http client after the action
 type Action int
 
+// Session is the SessionManager that will work as a middleware.
 var Session *scs.SessionManager
+
+// Auth is the authentication object
 var Auth AuthObject
 
+// Controller is the controller struct, contains the models, the templates, the web layout, the home page, the under construction page
+// the controller options for each route, the router itself and the config struct.
 type Controller struct {
 	DB                      *sql.DB
 	Models                  map[string]*Model
@@ -49,6 +58,7 @@ type Controller struct {
 	Config                  *AppConfig
 }
 
+// controllerOptions is a struct that holds options for each route in Controller
 type controllerOptions struct {
 	next      string
 	action    Action
@@ -56,6 +66,8 @@ type controllerOptions struct {
 	needsAuth bool
 }
 
+// ActionRouting helps the router to have the routing information about the URL, the NextURL,
+// if the route needs authentication or if it is a web hook (web hook can have POST data without midleware CSRF check)
 type ActionRouting struct {
 	URL       string
 	NextURL   string
@@ -63,6 +75,7 @@ type ActionRouting struct {
 	IsWebHook bool
 }
 
+// RequestObject is a struct builded from the http request, holds the url data in a convinient way.
 type RequestObject struct {
 	baseUrl string
 	cntrlr  string
@@ -70,19 +83,16 @@ type RequestObject struct {
 	params  map[string][]interface{}
 }
 
+// TemplateObject is the template struct, holds the filename and the template object.
 type TemplateObject struct {
 	filename string
 	template *template.Template
 }
 
-type TableObject struct {
-	MainTable     string
-	RelatedTables string
-}
-
+// Build func map
 var functions = template.FuncMap{}
 
-// Pass pointer to db connection and appconfig struct
+// Initialize from this function we pass a pointer to db connection and a pointer to appconfig struct
 func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	c.DB = db
 	c.Config = cfg
@@ -99,7 +109,7 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	InitHelpers(c.Config)
 }
 
-// noSurf midleware ... is the csrf protection middleware
+// noSurf midleware ... is the CSRF protection middleware
 func noSurf(next http.Handler) http.Handler {
 	csrfHandler := nosurf.New(next)
 
@@ -112,12 +122,12 @@ func noSurf(next http.Handler) http.Handler {
 	return csrfHandler
 }
 
-// session midleware ... is the session middleware
+// sessionLoad session midleware function
 func sessionLoad(next http.Handler) http.Handler {
 	return Session.LoadAndSave(next)
 }
 
-// Controller URL key function
+// getControllerOptionsKey get the (key or id) from URL, Controller key function
 func (r *ActionRouting) getControllerOptionsKey(action Action) string {
 	cKey := r.URL
 	if strings.Contains(r.URL, "*") {
@@ -131,17 +141,20 @@ func (r *ActionRouting) getControllerOptionsKey(action Action) string {
 	return cKey
 }
 
-// return session manager
+// GetSession return session manager
 func (c *Controller) GetSession() *scs.SessionManager {
 	return Session
 }
 
-//return Authobject
+// GetAuthObject return Authobject
 func (c *Controller) GetAuthObject() *AuthObject {
 	return &Auth
 }
 
-// register controller action - route, next, action and model
+// RegisterAction register controller action - route, next, action and model
+// RegisterAction, RegisterAuthAction, RegisterCustomAction are the most important functions in the gomvc package
+// all functions are responsible for processing requests and generating responses.
+// RegisterAction is used to register one of the pre defined actions View, Create, Update, Delete
 func (c *Controller) RegisterAction(route ActionRouting, action Action, model *Model) {
 	if c.Router == nil {
 		log.Fatal("Controller is not initialized")
@@ -190,6 +203,8 @@ func (c *Controller) RegisterAction(route ActionRouting, action Action, model *M
 	}
 }
 
+// RegisterAuthAction register controller action - route, next, action and model
+// is used to register the authentication actions
 func (c *Controller) RegisterAuthAction(authURL string, nextURL string, model *Model, authObject AuthObject) {
 	if c.Router == nil {
 		log.Fatal("Controller is not initialized")
@@ -234,7 +249,10 @@ func (c *Controller) RegisterAuthAction(authURL string, nextURL string, model *M
 	c.Router.With(noSurf).Post(authURL, c.authAction)
 }
 
-//Register route -> responsible for processing requests and generating responses
+// RegisterCustomAction register controller action - route, next, action and model
+// RegisterAction, RegisterAuthAction, RegisterCustomAction are the most important functions in the gomvc package
+// all functions are responsible for processing requests and generating responses.
+// RegisterCustomAction is used to register any custom action that doesn't fit the pre defined actions View, Create, Update, Delete
 func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model *Model, f http.HandlerFunc) {
 	if c.Router == nil {
 		log.Fatal("Controller is not initialized")
@@ -285,7 +303,7 @@ func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model
 	}
 }
 
-// Load template files
+// CreateTemplateCache loads the template files and creates a cache of templates in controller.
 func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplateFileName string) error {
 	if c.Router == nil {
 		log.Fatal("Controller is not initialized")
@@ -328,7 +346,7 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 	return nil
 }
 
-// AddTemplateData adds data for all templates
+// AddTemplateData adds data for templates, the data will be available in the view to build the web page before response.
 func (c *Controller) AddTemplateData(td TemplateData, r *http.Request) TemplateData {
 	td.Flash = Session.PopString(r.Context(), "flash")
 	td.Error = Session.PopString(r.Context(), "error")
@@ -338,6 +356,7 @@ func (c *Controller) AddTemplateData(td TemplateData, r *http.Request) TemplateD
 	return td
 }
 
+// GetTemplate return a single template from template cache
 func (c *Controller) GetTemplate(page string) (*template.Template, error) {
 	to, ok := c.TemplateCache[page]
 	if !ok {
@@ -361,6 +380,7 @@ func (c *Controller) GetTemplate(page string) (*template.Template, error) {
 	return t, nil
 }
 
+// GetUnderConstructionTemplate get the under construction page
 func (c *Controller) GetUnderConstructionTemplate(page string) (*template.Template, error) {
 	to, ok := c.TemplateCache[page]
 	if !ok {
@@ -384,7 +404,7 @@ func (c *Controller) GetUnderConstructionTemplate(page string) (*template.Templa
 	return t, nil
 }
 
-// (string, string, string, map[string][]interface{})
+// parseRequest parse request and build a RequestObject (string, string, string, map[string][]interface{})
 func parseRequest(r *http.Request, homePageFilename string) RequestObject {
 	rParts := strings.Split(r.URL.String(), "?")
 	var params = make(map[string][]interface{}, 0)
@@ -436,6 +456,7 @@ func parseRequest(r *http.Request, homePageFilename string) RequestObject {
 	return retValue
 }
 
+// exportControllerAndAction splits the url to parts and returns the controller name, the action name, and parameters
 func exportControllerAndAction(urlFirstPart string) (string, string, string, string) {
 	cntrlr, action, params, baseUrl := "", "", "", ""
 	www := strings.Split(urlFirstPart, "/")
@@ -459,6 +480,7 @@ func exportControllerAndAction(urlFirstPart string) (string, string, string, str
 	return cntrlr, action, params, baseUrl
 }
 
+// authAction is the authentication function
 func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 	var err error
 
@@ -557,7 +579,7 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// View Action --- GET ---
+// viewAction is the View Action Function (CRUD), used for GET requests --- GET ---
 func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	var rr []ResultRow
 	var err error
@@ -667,7 +689,7 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	c.View(t, &td, w, r)
 }
 
-// Create Action --- POST ---
+// createAction is the CREATE function (CRUD), used for POST requests --- POST ---
 func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 	var err error
 
@@ -732,7 +754,7 @@ func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Update Action --- POST ---
+// updateAction is the UPDATE function (CRUD), used for POST requests --- POST ---
 func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 	var err error
 
@@ -804,7 +826,7 @@ func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Delete Action --- POST ---
+// deleteAction is the DELETE function (CRUD), used for POST requests --- POST ---
 func (c *Controller) deleteAction(w http.ResponseWriter, r *http.Request) {
 
 	var err error

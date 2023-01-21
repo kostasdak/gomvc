@@ -9,6 +9,7 @@ import (
 	"text/template"
 )
 
+// TemplateData is used to provide all data to the template engine to build the webpage.
 type TemplateData struct {
 	Model        Model
 	Result       []ResultRow

@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// AuthObject is a struct that holds all the information to perform a correct authentication against the user table in the database.
 type AuthObject struct {
 	Model             Model
 	UsernameFieldName string
@@ -23,17 +24,19 @@ type AuthObject struct {
 	LoginFailMessage  string
 }
 
+// AuthCondition is the struct for the ExtraConditions field in the AuthObject struct.
 type AuthCondition struct {
 	Field    string
 	Operator string
 	Value    string
 }
 
+// GetExpirationFromNow returns the expiration time from now.
 func (a *AuthObject) GetExpirationFromNow() time.Time {
 	return time.Now().UTC().Add(a.ExpireAfterIdle)
 }
 
-// Check authentication, Cookie value against User in database
+// IsSessionExpired checks authentication, get cookie value and check against user record in database
 func (a *AuthObject) IsSessionExpired(r *http.Request) (bool, error) {
 	if len(a.SessionKey) > 0 {
 		if !Session.Exists(r.Context(), a.SessionKey) {
@@ -96,6 +99,7 @@ func (a *AuthObject) IsSessionExpired(r *http.Request) (bool, error) {
 	return true, nil
 }
 
+// KillAuthSession kills the auth session by reseting the expiration time in user record in database
 func (a *AuthObject) KillAuthSession(w http.ResponseWriter, r *http.Request) error {
 	if len(a.SessionKey) > 0 {
 		if !Session.Exists(r.Context(), a.SessionKey) {
@@ -127,19 +131,19 @@ func (a *AuthObject) KillAuthSession(w http.ResponseWriter, r *http.Request) err
 	return nil
 }
 
-// hash password
+// HashPassword create a password hash
 func (a *AuthObject) HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 8)
 	return string(bytes), err
 }
 
-// compare password and hash for Authentication
+// CheckPasswordHash compares password and hash for Authentication using bcrypt.
 func (a *AuthObject) CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
 
-// Random token generator
+// TokenGenerator is the random token generator
 func (a *AuthObject) TokenGenerator() string {
 	b := make([]byte, 64)
 	rand.Read(b)
