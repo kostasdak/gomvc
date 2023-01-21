@@ -361,4 +361,4 @@ More examples comming soon ...
 
 Copyright (c) 2020-present [Kostas Dakanalis](https://github.com/kostasdak)
 
-Licensed under [Apache-2.0](./LICENSE)
+Licensed under [Apache-2.0](./LICENSE.md)
