@@ -1,3 +1,33 @@
+// Package gomvc is a Golang package easy to use and build almost any MVC Web App connected to MySql database with just a few steps.
+// `gomvc` package requires a MySql Server up and running and a database ready to drive your web application.
+//
+// Build a standard MVC (Model, View, Controller) style web app with minimum Golang code, like you use a classic MVC Framework.
+// Many features, many ready to use functions, highly customizable, embeded log and error handling
+//
+// #### MVC
+//
+// ```
+// (databse CRUD)      (http req/resp)
+//     Model <--------> Controller
+//         \            /
+//          \          /
+//           \        /
+//            \      /
+//             \    /
+//              View
+//      (text/template files)
+// ```
+//
+// #### Basic Steps
+// * Edit the config file
+// * Load config file `config.yaml`
+// * Connect to MySql database
+// * Write code to initialize your Models and Controllers
+// * Write your standard text/Template files (Views)
+// * Start your server and enjoy
+//
+// #### More Examples
+// Find mire examples in Readme.md file
 package gomvc
 
 import (

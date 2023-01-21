@@ -356,3 +356,9 @@ func ContactPostForm(w http.ResponseWriter, r *http.Request) {
 
 
 More examples comming soon ...
+
+## License
+
+Copyright (c) 2020-present [Kostas Dakanalis](https://github.com/kostasdak)
+
+Licensed under [Apache-2.0](./LICENSE)
