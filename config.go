@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// AppConfig is the application config,
 type AppConfig struct {
 	UseCache         bool
 	Server           ServerConf
@@ -16,11 +17,13 @@ type AppConfig struct {
 	ShowStackOnError bool
 }
 
+// ServerConf http listening port and true/false option for https
 type ServerConf struct {
 	Port          int
 	SessionSecure bool
 }
 
+// DatabaseConf set MySql server address, database name, username and password
 type DatabaseConf struct {
 	Server string
 	Dbname string
@@ -28,10 +31,12 @@ type DatabaseConf struct {
 	Dbpass string
 }
 
+// configValues is the map that holds the configuration values
 type configValues map[string]interface{}
 
 var ncfg configValues
 
+// ReadConfig this function is for reading the configuration file
 func ReadConfig(filePath string) *AppConfig {
 	ncfg = make(configValues)
 
@@ -105,10 +110,12 @@ func ReadConfig(filePath string) *AppConfig {
 	return conf
 }
 
+// GetValue get a parammeter value from a specific key
 func (*AppConfig) GetValue(key string) interface{} {
 	return ncfg.Get(key)
 }
 
+// unmarshal internal function to apply the file parameters to gomvc variables
 func unmarshal(ncfg configValues) *AppConfig {
 	conf := &AppConfig{}
 
@@ -136,16 +143,19 @@ func unmarshal(ncfg configValues) *AppConfig {
 	return conf
 }
 
+// getValuePair split and return parameter name and value in a slice of string
 func getValuePair(s string, sep string) []string {
 	nvPair := strings.Split(s, sep)
 	return []string{strings.Trim(nvPair[0], " "), strings.Trim(nvPair[1], " ")}
 }
 
+// Add a value to configValues
 func (s *configValues) Add(k string, v interface{}) {
 	r := *s
 	r[k] = v
 }
 
+// Get a value from configValues
 func (s *configValues) Get(k string) interface{} {
 	r := *s
 	return r[k]

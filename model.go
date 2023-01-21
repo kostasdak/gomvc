@@ -8,8 +8,13 @@ import (
 	"time"
 )
 
+// JoinType, supported MySql join types INNER, LEFT, RIGHT
 type JoinType string
+
+// ResultStyle, full dataset result from database OR dataset result with sub-result nested datasets
 type ResultStyle int
+
+// QueryType the query type identifier type CRUD (Create, Read, Update, Delete)
 type QueryType string
 
 const (
@@ -30,6 +35,7 @@ const (
 	QueryTypeDelete QueryType = "d"
 )
 
+// Model is the model struct holding all the data and parameters for each model.
 type Model struct {
 	DB           *sql.DB
 	PKField      string
@@ -43,6 +49,7 @@ type Model struct {
 	lastValues   []interface{}
 }
 
+// ResultRow is the result coming from MySql database
 type ResultRow struct {
 	Values    []interface{}
 	Fields    []string
@@ -50,12 +57,14 @@ type ResultRow struct {
 	Subresult []ResultRow
 }
 
+// Relation is the relation to another table
 type Relation struct {
 	Join          SQLJoin
 	Foreign_model Model
 	ResultStyle   ResultStyle
 }
 
+// SQLJoin the type of MySql Join used by Relation
 type SQLJoin struct {
 	Foreign_table string
 	Foreign_PK    string
@@ -63,21 +72,25 @@ type SQLJoin struct {
 	Join_type     JoinType
 }
 
+// SQLTable the SQL table object
 type SQLTable struct {
 	TableName string
 	PKField   string
 }
 
+// SQLField the MySql table field object
 type SQLField struct {
 	FieldName string
 	Value     interface{}
 }
 
+// SQLKeyPair local<->foreign key pair
 type SQLKeyPair struct {
 	LocalKey   string
 	ForeignKey string
 }
 
+// Filter is user to filter data in WHERE Clause MySql statement
 type Filter struct {
 	Field    string
 	Operator string
@@ -85,11 +98,12 @@ type Filter struct {
 	Logic    string
 }
 
-//Get current instance
+// Instance function returns the current model instance
 func (m *Model) Instance() Model {
 	return *m
 }
 
+// GetFieldIndex rerurns the field index using its name
 func (r *ResultRow) GetFieldIndex(name string) int {
 	for i, v := range r.Fields {
 		if name == v {
@@ -100,7 +114,7 @@ func (r *ResultRow) GetFieldIndex(name string) int {
 	return -1
 }
 
-//Pass initial Parammeters
+// InitModel pass all initial parammeters to activate the model
 func (m *Model) InitModel(db *sql.DB, tableName string, PKField string) error {
 	m.DB = db
 	m.TableName = tableName
@@ -140,11 +154,12 @@ func (m *Model) InitModel(db *sql.DB, tableName string, PKField string) error {
 	return nil
 }
 
+// AssignLabels function to assign human friendly Names/Labels to MySql fields
 func (m *Model) AssignLabels(labels map[string]string) {
 	m.Labels = labels
 }
 
-//Add Foreign table (model)
+// AddRelation Add Foreign table (model) and assign a relation to another model
 func (m *Model) AddRelation(db *sql.DB, tableName string, PKField string, keys SQLKeyPair, join_type JoinType, result_style ResultStyle) {
 	fm := new(Model)
 	fm.InitModel(db, tableName, PKField)
@@ -158,6 +173,7 @@ func (m *Model) AddRelation(db *sql.DB, tableName string, PKField string, keys S
 	)
 }
 
+// Label returns the Label from the field name
 func (m *Model) Label(field string) string {
 	lb, ok := m.Labels[field]
 	if !ok {
@@ -166,7 +182,7 @@ func (m *Model) Label(field string) string {
 	return lb
 }
 
-//Get last id from Table
+//GetLastId is a function to get the last id from a Table/Model
 func (m *Model) GetLastId() (int64, error) {
 	if m == nil {
 		return 0, errors.New("cannot perform action : GetLastId() on nil model")
@@ -194,7 +210,7 @@ func (m *Model) GetLastId() (int64, error) {
 	return id, err
 }
 
-//Query table with filters
+// GetRecords is function to execute a query against a table/model with filters (WHERE filters)
 func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 	if m == nil {
 		return []ResultRow{}, errors.New("cannot perform action : GetRecords() on nil model")
@@ -296,7 +312,7 @@ func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 	return rrr, nil
 }
 
-//Execute custon query
+//Execute is function to execute custon query, same like GetRecords
 func (m *Model) Execute(q string, values ...interface{}) ([]ResultRow, error) {
 	if m == nil {
 		return []ResultRow{}, errors.New("cannot perform action : Execute() on nil model")
