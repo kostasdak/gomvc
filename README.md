@@ -7,14 +7,14 @@ This is a Golang package easy to use and build almost any MVC Web App connected 
 `gomvc` package requires a MySql Server up and running and a database ready to drive your web application.</br>
 
 Build a standard MVC (Model, View, Controller) style web app with minimum Golang code, like you use a classic MVC Framework.</br>
-Many features, many ready to use functions, highly customizable, embeded log and error handling 
+Many features, many ready to use functions, highly customizable, embedded log and error handling 
 
 </br>
 
 #### MVC
 
 ```
-(databse CRUD)      (http req/resp) 
+(Database CRUD)      (http req/resp) 
      Model <--------> Controller
          \            /    
           \          /
@@ -44,15 +44,15 @@ Session middleware : `github.com/alexedwards/scs/v2`</br>
 ## Features
 
 * Easy to learn, use and build.
-* Flexibility and Customization
-* Embeded Authentication using database table if needed. 
-* Embeded libraries like : session managment, csrf middleware, http router
-* Embeded info log and server error handling
-* Strong MVC pattern
-* Models with many features and easy to use functions
-* Models with build in relational functionlity with other database tables
-* Controlles with simple yet powerful http handling
-* Ability to attach our own functions to Controller and requests for more customized http handling
+* Flexibility and Customization.
+* Embedded Authentication using database table if needed.
+* Embedded libraries like : session management, csrf middleware, http route.
+* Embedded info log and server error handling.
+* Strong MVC pattern.
+* Models with many features and easy to use functions.
+* Models with build in relational functionality with other database tables.
+* Controller with simple yet powerful http handling.
+* Ability to attach your own functions to Controller and requests for more customized request handling.
 * Working Examples to cover almost every case.
 
 ## Installation
@@ -69,14 +69,14 @@ Note: If you're using the traditional `GOPATH` mechanism to manage dependencies,
 </br>
 
 ## Template file names general rules
-It is recomended to use the folowing rule for template filenames.
+It is recommended to use the following rule for template filenames.
 All template files must have `.tmpl` extension
 
 * Template layout</br>
 This file is the layout of your app `base.layout.html`
 
 * Pages</br>
-If a page needs a data from a databese table use this pattern : `[dbtable].[action].tmpl`</br>
+If a page needs a data from a database table use this pattern : `[dbtable].[action].tmpl`</br>
 If a page is a static page you can use this pattern : `[dbtable].view.tmpl`
 
 
@@ -355,7 +355,7 @@ func ContactPostForm(w http.ResponseWriter, r *http.Request) {
 [Example 03](https://github.com/kostasdak/go-mvc-example-3) - gomvc Auth example, two tables related [products]->[colors] (one-to-many relation)
 
 
-More examples comming soon ...
+More examples coming soon ...
 
 ## License
 
