@@ -8,14 +8,16 @@
 //
 // ```
 // (databse CRUD)      (http req/resp)
-//     Model <--------> Controller
-//         \            /
-//          \          /
-//           \        /
-//            \      /
-//             \    /
-//              View
-//      (text/template files)
+//
+//	Model <--------> Controller
+//	    \            /
+//	     \          /
+//	      \        /
+//	       \      /
+//	        \    /
+//	         View
+//	 (text/template files)
+//
 // ```
 //
 // #### Basic Steps
@@ -563,9 +565,10 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 			token := Auth.TokenGenerator()
 
 			// build fields
+			var exp time.Time = Auth.GetExpirationFromNow()
 			var fields []SQLField
 			fields = append(fields, SQLField{FieldName: Auth.HashCodeFieldName, Value: token})
-			fields = append(fields, SQLField{FieldName: Auth.ExpTimeFieldName, Value: Auth.GetExpirationFromNow()})
+			fields = append(fields, SQLField{FieldName: Auth.ExpTimeFieldName, Value: exp})
 
 			_, err = m.Update(fields, fmt.Sprint(rr[0].Values[idIndx]))
 
@@ -577,12 +580,20 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 			// Log messages
 			InfoMessage("Logged in successful")
 			if len(Auth.LoggedInMessage) > 0 {
-
 				Session.Put(r.Context(), "flash", Auth.LoggedInMessage)
 			}
 
 			//store session token
 			Session.Put(r.Context(), Auth.SessionKey, token)
+
+			// Set userdata in UserData var in Auth Object
+			rr[0].Values[rr[0].GetFieldIndex(Auth.HashCodeFieldName)] = token
+			rr[0].Values[rr[0].GetFieldIndex(Auth.ExpTimeFieldName)] = exp
+			Auth.UserData = rr[0]
+
+			// set blank password and hash in slice
+			Auth.UserData.Values[Auth.UserData.GetFieldIndex(Auth.HashCodeFieldName)] = ""
+			Auth.UserData.Values[Auth.UserData.GetFieldIndex(Auth.PasswordFieldName)] = ""
 
 			if len(cOptions.next) > 0 {
 				http.Redirect(w, r, string(cOptions.next), http.StatusSeeOther)
@@ -707,6 +718,8 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var td TemplateData
+	td.Auth = Auth
+	td.AuthExpired, _ = Auth.IsSessionExpired(r)
 	td.Result = rr
 	td.URLParams = rObj.params
 	m, ok := c.Models[rObj.baseUrl]

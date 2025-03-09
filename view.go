@@ -11,6 +11,8 @@ import (
 
 // TemplateData is used to provide all data to the template engine to build the webpage.
 type TemplateData struct {
+	Auth         AuthObject
+	AuthExpired  bool
 	Model        Model
 	Result       []ResultRow
 	URLParams    map[string][]interface{}
@@ -21,7 +23,7 @@ type TemplateData struct {
 	Error        string
 }
 
-//View provides a set of methods (e.g. render()) for rendering purpose.
+// View provides a set of methods (e.g. render()) for rendering purpose.
 func (c *Controller) View(t *template.Template, td *TemplateData, w http.ResponseWriter, r *http.Request) {
 
 	uc := c.Config.GetValue("UnderConstruction")

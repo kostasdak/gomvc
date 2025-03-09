@@ -22,6 +22,7 @@ type AuthObject struct {
 	authURL           string
 	LoggedInMessage   string
 	LoginFailMessage  string
+	UserData          ResultRow
 }
 
 // AuthCondition is the struct for the ExtraConditions field in the AuthObject struct.
