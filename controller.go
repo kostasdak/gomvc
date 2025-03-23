@@ -413,6 +413,11 @@ func (c *Controller) GetTemplate(page string) (*template.Template, error) {
 	return t, nil
 }
 
+// GetFunctions returns the function map from the controller
+func (c *Controller) GetFunctions() template.FuncMap {
+	return c.Functions
+}
+
 // GetUnderConstructionTemplate get the under construction page
 func (c *Controller) GetUnderConstructionTemplate(page string) (*template.Template, error) {
 	to, ok := c.TemplateCache[page]
