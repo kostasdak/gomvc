@@ -88,6 +88,7 @@ type Controller struct {
 	Options                 map[string]controllerOptions
 	Router                  *chi.Mux
 	Config                  *AppConfig
+	Functions               template.FuncMap
 }
 
 // controllerOptions is a struct that holds options for each route in Controller
@@ -122,7 +123,7 @@ type TemplateObject struct {
 }
 
 // Build func map
-var Functions = template.FuncMap{}
+//var Functions = template.FuncMap{}
 
 // Initialize from this function we pass a pointer to db connection and a pointer to appconfig struct
 func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
@@ -355,7 +356,7 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 	for _, page := range pages {
 		name := filepath.Base(page)
 		fmt.Println("Loading page : " + page + " / name index : " + name)
-		ts, err := template.New(name).Funcs(Functions).ParseFiles(page)
+		ts, err := template.New(name).Funcs(c.Functions).ParseFiles(page)
 		if err != nil {
 			err = errors.New("page file not found : " + page + "\n" + err.Error())
 			ServerError(nil, err)
@@ -398,7 +399,7 @@ func (c *Controller) GetTemplate(page string) (*template.Template, error) {
 	}
 
 	pagefilename := to.filename
-	t, err := template.New(page).Funcs(Functions).ParseFiles(pagefilename)
+	t, err := template.New(page).Funcs(c.Functions).ParseFiles(pagefilename)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +423,7 @@ func (c *Controller) GetUnderConstructionTemplate(page string) (*template.Templa
 	}
 
 	pagefilename := to.filename
-	t, err := template.New(page).Funcs(Functions).ParseFiles(pagefilename)
+	t, err := template.New(page).Funcs(c.Functions).ParseFiles(pagefilename)
 	if err != nil {
 		return nil, err
 	}
