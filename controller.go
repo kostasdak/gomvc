@@ -122,7 +122,7 @@ type TemplateObject struct {
 }
 
 // Build func map
-var functions = template.FuncMap{}
+var Functions = template.FuncMap{}
 
 // Initialize from this function we pass a pointer to db connection and a pointer to appconfig struct
 func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
@@ -355,7 +355,7 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 	for _, page := range pages {
 		name := filepath.Base(page)
 		fmt.Println("Loading page : " + page + " / name index : " + name)
-		ts, err := template.New(name).Funcs(functions).ParseFiles(page)
+		ts, err := template.New(name).Funcs(Functions).ParseFiles(page)
 		if err != nil {
 			err = errors.New("page file not found : " + page + "\n" + err.Error())
 			ServerError(nil, err)
@@ -398,7 +398,7 @@ func (c *Controller) GetTemplate(page string) (*template.Template, error) {
 	}
 
 	pagefilename := to.filename
-	t, err := template.New(page).Funcs(functions).ParseFiles(pagefilename)
+	t, err := template.New(page).Funcs(Functions).ParseFiles(pagefilename)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +422,7 @@ func (c *Controller) GetUnderConstructionTemplate(page string) (*template.Templa
 	}
 
 	pagefilename := to.filename
-	t, err := template.New(page).Funcs(functions).ParseFiles(pagefilename)
+	t, err := template.New(page).Funcs(Functions).ParseFiles(pagefilename)
 	if err != nil {
 		return nil, err
 	}
@@ -441,6 +441,8 @@ func parseRequest(r *http.Request, homePageFilename string) RequestObject {
 	rParts := strings.Split(r.URL.String(), "?")
 	var params = make(map[string][]interface{}, 0)
 	var retValue RequestObject
+
+	InfoMessage("ParseRequest - URL: " + r.URL.String())
 
 	cntrlr, action, paramsStr, baseUrl := exportControllerAndAction(rParts[0])
 	if len(paramsStr) > 0 {
