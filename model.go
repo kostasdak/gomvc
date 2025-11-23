@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -182,7 +183,7 @@ func (m *Model) Label(field string) string {
 	return lb
 }
 
-//GetLastId is a function to get the last id from a Table/Model
+// GetLastId is a function to get the last id from a Table/Model
 func (m *Model) GetLastId() (int64, error) {
 	if m == nil {
 		return 0, errors.New("cannot perform action : GetLastId() on nil model")
@@ -312,7 +313,72 @@ func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 	return rrr, nil
 }
 
-//Execute is function to execute custon query, same like GetRecords
+// scanRows is a helper method to scan database rows into ResultRow slice
+func (m *Model) scanRows(r *sql.Rows) ([]ResultRow, error) {
+	typ, err := r.ColumnTypes()
+	if err != nil {
+		return []ResultRow{}, err
+	}
+
+	fld, err := r.Columns()
+	if err != nil {
+		return []ResultRow{}, err
+	}
+
+	var rrr []ResultRow
+
+	for r.Next() {
+		var rr ResultRow
+		rr.Values = make([]interface{}, len(typ))
+		rr.pointers = make([]interface{}, len(typ))
+		rr.Fields = fld
+
+		for i := range typ {
+			rr.pointers[i] = &rr.Values[i]
+		}
+
+		err = r.Scan(rr.pointers...)
+		if err != nil {
+			return []ResultRow{}, err
+		}
+
+		for i := range rr.Values {
+			val, err := constructField(typ[i], rr.Values[i])
+			if err != nil {
+				return []ResultRow{}, err
+			}
+			rr.Values[i] = val
+		}
+
+		// Handle relations if configured
+		if len(m.Relations) > 0 {
+			for _, relation := range m.Relations {
+				if relation.ResultStyle == ResultStyleSubresult {
+					PKIndex := rr.GetFieldIndex(relation.Join.KeyPair.LocalKey)
+					if PKIndex >= 0 && PKIndex < len(rr.Values) {
+						f := make([]Filter, 0)
+						f = append(f, Filter{
+							Field:    relation.Join.KeyPair.ForeignKey,
+							Operator: "=",
+							Value:    rr.Values[PKIndex],
+						})
+						rel_rr, err := relation.Foreign_model.GetRecords(f, 0)
+						if err != nil {
+							return []ResultRow{}, err
+						}
+						rr.Subresult = append(rr.Subresult, rel_rr...)
+					}
+				}
+			}
+		}
+
+		rrr = append(rrr, rr)
+	}
+
+	return rrr, nil
+}
+
+// Execute is function to execute custon query, same like GetRecords
 func (m *Model) Execute(q string, values ...interface{}) ([]ResultRow, error) {
 	if m == nil {
 		return []ResultRow{}, errors.New("cannot perform action : Execute() on nil model")
@@ -364,10 +430,15 @@ func (m *Model) Execute(q string, values ...interface{}) ([]ResultRow, error) {
 	return rrr, nil
 }
 
-//Execute save query
+// Deprecated: Execute save query
 func (m *Model) Save(fields []SQLField) (bool, error) {
+	return m.Insert(fields)
+}
+
+// Execute INSERT query
+func (m *Model) Insert(fields []SQLField) (bool, error) {
 	if m == nil {
-		return false, errors.New("cannot perform action : Save() on nil model")
+		return false, errors.New("cannot perform action : Insert() on nil model")
 	}
 
 	q, values := BuildQuery(QueryTypeInsert, fields,
@@ -387,7 +458,7 @@ func (m *Model) Save(fields []SQLField) (bool, error) {
 	return false, errors.New("unknown eror occured, check your sql sytax statement")
 }
 
-//Execute update query
+// Execute UPDATE query
 func (m *Model) Update(fields []SQLField, id string) (bool, error) {
 	if m == nil {
 		return false, errors.New("cannot perform action : Update() on nil model")
@@ -410,7 +481,7 @@ func (m *Model) Update(fields []SQLField, id string) (bool, error) {
 	return false, errors.New("unknown eror occured, check your sql sytax statement")
 }
 
-//Execute delete query
+// Execute DELETE query
 func (m *Model) Delete(id string) (bool, error) {
 	if m == nil {
 		return false, errors.New("cannot perform action : Delete() on nil model")
@@ -457,7 +528,7 @@ func executeWithContext(m *Model, q string, values []interface{}) (bool, error) 
 	return true, nil
 }
 
-//Construct Filed function
+// Construct Filed function
 func constructField(ct *sql.ColumnType, val interface{}) (interface{}, error) {
 	if val == nil {
 		return nil, nil
@@ -557,7 +628,7 @@ func constructField(ct *sql.ColumnType, val interface{}) (interface{}, error) {
 	return nil, nil
 }
 
-//Build quey func
+// Build query func
 func BuildQuery(queryType QueryType, fields []SQLField, table SQLTable, joins []SQLJoin, wheres []Filter, group string, order string, limit int64) (string, []interface{}) {
 	q := ""
 	s := ""
@@ -633,6 +704,115 @@ func BuildQuery(queryType QueryType, fields []SQLField, table SQLTable, joins []
 		values = append(values, v0)
 		q = q[:len(q)-2] + w
 
+	case QueryTypeDelete:
+		q = "DELETE FROM " + table.TableName + w
+	default:
+		q = ""
+	}
+
+	return q, values
+}
+
+// BuildQueryExtended - improved version with OFFSET and IN clause support
+func BuildQueryExtended(queryType QueryType, fields []SQLField, table SQLTable,
+	joins []SQLJoin, wheres []Filter, group string, order string,
+	limit int64, offset int64) (string, []interface{}) {
+
+	q := ""
+	s := ""
+	j := ""
+	w := ""
+	g := ""
+	o := ""
+	l := ""
+
+	// SELECT
+	if len(fields) > 0 {
+		fieldNames := make([]string, len(fields))
+		for i, fld := range fields {
+			fieldNames[i] = fld.FieldName
+		}
+		s = strings.Join(fieldNames, ", ")
+	} else {
+		s = "*"
+	}
+
+	// JOIN
+	for _, jn := range joins {
+		j = j + " " + string(jn.Join_type) + " JOIN " + jn.Foreign_table + " ON "
+		j = j + jn.Foreign_table + "." + jn.KeyPair.ForeignKey + "=" +
+			table.TableName + "." + jn.KeyPair.LocalKey
+	}
+
+	// WHERE with IN clause support
+	var values = make([]interface{}, 0)
+	if len(wheres) > 0 {
+		w = " WHERE "
+		for i, f := range wheres {
+			if i > 0 && len(f.Logic) > 0 {
+				w = w + " " + f.Logic + " "
+			}
+
+			// Handle IN clause
+			if f.Operator == "IN" {
+				inValues, ok := f.Value.([]interface{})
+				if !ok {
+					// Try to convert single value to slice
+					inValues = []interface{}{f.Value}
+				}
+
+				placeholders := make([]string, len(inValues))
+				for j := range inValues {
+					placeholders[j] = "?"
+					values = append(values, inValues[j])
+				}
+				w = w + "(" + f.Field + " IN (" + strings.Join(placeholders, ", ") + "))"
+			} else {
+				w = w + "(" + f.Field + " " + f.Operator + " ?)"
+				values = append(values, f.Value)
+			}
+		}
+	}
+
+	// GROUP BY
+	if len(group) > 0 {
+		g = " " + group
+	}
+
+	// ORDER
+	if len(order) > 0 {
+		o = " " + order
+	}
+
+	// LIMIT and OFFSET
+	if limit > 0 {
+		l = " LIMIT " + strconv.FormatInt(limit, 10)
+		if offset > 0 {
+			l = l + " OFFSET " + strconv.FormatInt(offset, 10)
+		}
+	}
+
+	switch queryType {
+	case QueryTypeSelect:
+		q = "SELECT " + s + " FROM " + table.TableName + j + w + g + o + l
+	case QueryTypeInsert:
+		fieldNames := make([]string, len(fields))
+		placeholders := make([]string, len(fields))
+		for i, fld := range fields {
+			fieldNames[i] = fld.FieldName
+			placeholders[i] = "?"
+			values = append(values, fld.Value)
+		}
+		q = "INSERT INTO " + table.TableName +
+			" (" + strings.Join(fieldNames, ", ") + ") VALUES (" +
+			strings.Join(placeholders, ", ") + ")"
+	case QueryTypeUpdate:
+		setParts := make([]string, len(fields))
+		for i, fld := range fields {
+			setParts[i] = fld.FieldName + " = ?"
+			values = append(values, fld.Value)
+		}
+		q = "UPDATE " + table.TableName + " SET " + strings.Join(setParts, ", ") + w
 	case QueryTypeDelete:
 		q = "DELETE FROM " + table.TableName + w
 	default:

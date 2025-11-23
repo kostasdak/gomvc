@@ -135,7 +135,20 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	Session.Lifetime = 24 * time.Hour
 	Session.Cookie.Persist = true
 	Session.Cookie.SameSite = http.SameSiteLaxMode
-	Session.Cookie.Secure = c.Config.Server.SessionSecure
+	Session.Cookie.Secure = true // Always HttpOnly for security <-> c.Config.Server.SessionSecure
+
+	// Set Secure flag based on environment
+	// In production/staging, require secure cookies
+	// In development, allow non-secure for HTTP testing
+	if c.Config.Server.SessionSecure {
+		Session.Cookie.Secure = true
+	} else {
+		Session.Cookie.Secure = false
+		InfoMessage("Development mode: Session cookies are NOT secure (HTTP allowed)")
+	}
+
+	// Add security middleware with environment awareness
+	c.Router.Use(secureHeaders(cfg))
 
 	c.Router.Use(sessionLoad)
 
@@ -158,6 +171,55 @@ func noSurf(next http.Handler) http.Handler {
 // sessionLoad session midleware function
 func sessionLoad(next http.Handler) http.Handler {
 	return Session.LoadAndSave(next)
+}
+
+// secureHeaders middleware adds security headers and enforces HTTPS based on environment
+func secureHeaders(cfg *AppConfig) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			isProduction := cfg.Server.SessionSecure
+			//isStaging := cfg.Environment == "staging"
+			isHTTPS := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+
+			// Enforce HTTPS only in production
+			if isProduction && !isHTTPS {
+				httpsURL := "https://" + r.Host + r.RequestURI
+				http.Redirect(w, r, httpsURL, http.StatusMovedPermanently)
+				return
+			}
+
+			// Always set basic security headers (safe for all environments)
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-XSS-Protection", "1; mode=block")
+
+			// Only set strict security headers in production
+			if isProduction {
+				w.Header().Set("X-Frame-Options", "DENY")
+				w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+
+				// HSTS header (only when using HTTPS)
+				if isHTTPS {
+					maxAge := "31536000" // 1 year
+					w.Header().Set("Strict-Transport-Security",
+						"max-age="+maxAge+"; includeSubDomains; preload")
+				}
+
+				// Strict CSP for production
+				w.Header().Set("Content-Security-Policy",
+					"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';")
+			} else {
+				// Development environment - relaxed headers
+				w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+				w.Header().Set("Referrer-Policy", "no-referrer-when-downgrade")
+
+				// Relaxed CSP for development (allows more flexibility)
+				w.Header().Set("Content-Security-Policy",
+					"default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https: http:; font-src 'self' data:;")
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // getControllerOptionsKey get the (key or id) from URL, Controller key function
