@@ -38,6 +38,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -599,8 +600,7 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 
 	m := c.Models[rObj.baseUrl]
 
-	// Build filter -> only for primary key
-	f := make([]Filter, 0)
+	// Validate credentials are present
 	username := r.Form.Get(Auth.UsernameFieldName)
 	password := r.Form.Get(Auth.PasswordFieldName)
 
@@ -610,6 +610,8 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Build filter for username lookup
+	f := make([]Filter, 0)
 	f = append(f, Filter{Field: m.TableName + "." + Auth.UsernameFieldName, Operator: "=", Value: username})
 	if len(Auth.ExtraConditions) > 0 {
 		for _, v := range Auth.ExtraConditions {
@@ -617,77 +619,107 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//Get single row
+	//Get single row [user record]
 	rr, err := m.GetRecords(f, 1)
 	if err != nil {
 		ServerError(w, err)
 		return
 	}
 
-	if len(rr) > 0 {
+	// TIMING ATTACK PREVENTION:
+	// Always perform the same operations regardless of whether user exists
+	// This prevents attackers from determining valid usernames by timing
+
+	var storedPasswordHash string
+	var userExists bool = len(rr) > 0
+	var userID string
+
+	if userExists {
 		//fmt.Println(rr)
 		//uIndx := rr[0].GetFieldIndex(cOptions.auth.UsernameFiledName)
 		pIndx := rr[0].GetFieldIndex(Auth.PasswordFieldName)
-		storedPass := fmt.Sprint(rr[0].Values[pIndx])
-		idIndx := rr[0].GetFieldIndex(m.PKField)
-
-		if Auth.CheckPasswordHash(password, storedPass) {
-			token := Auth.TokenGenerator()
-
-			// build fields
-			var exp time.Time = Auth.GetExpirationFromNow()
-			var fields []SQLField
-			fields = append(fields, SQLField{FieldName: Auth.HashCodeFieldName, Value: token})
-			fields = append(fields, SQLField{FieldName: Auth.ExpTimeFieldName, Value: exp})
-
-			_, err = m.Update(fields, fmt.Sprint(rr[0].Values[idIndx]))
-
-			if err != nil {
-				ServerError(w, err)
-				return
-			}
-
-			// Log messages
-			InfoMessage("Logged in successful")
-			if len(Auth.LoggedInMessage) > 0 {
-				Session.Put(r.Context(), "flash", Auth.LoggedInMessage)
-			}
-
-			//store session token
-			Session.Put(r.Context(), Auth.SessionKey, token)
-
-			// Set userdata in UserData var in Auth Object
-			rr[0].Values[rr[0].GetFieldIndex(Auth.HashCodeFieldName)] = token
-			rr[0].Values[rr[0].GetFieldIndex(Auth.ExpTimeFieldName)] = exp
-			Auth.UserData = rr[0]
-
-			// set blank password and hash in slice
-			Auth.UserData.Values[Auth.UserData.GetFieldIndex(Auth.HashCodeFieldName)] = ""
-			Auth.UserData.Values[Auth.UserData.GetFieldIndex(Auth.PasswordFieldName)] = ""
-
-			if len(cOptions.next) > 0 {
-				http.Redirect(w, r, string(cOptions.next), http.StatusSeeOther)
-			} else {
-				c.viewAction(w, r)
-			}
-		} else {
-			// wrong password
-			InfoMessage("Login Fail")
-			if len(Auth.LoginFailMessage) > 0 {
-				Session.Put(r.Context(), "error", Auth.LoginFailMessage)
-			}
-			c.viewAction(w, r)
+		if pIndx == -1 {
+			ServerError(w, errors.New("password field not found in user record"))
 			return
 		}
+
+		storedPasswordHash = fmt.Sprint(rr[0].Values[pIndx])
+		idIndx := rr[0].GetFieldIndex(m.PKField)
+		if idIndx == -1 {
+			ServerError(w, errors.New("primary key field not found in user record"))
+			return
+		}
+		userID = fmt.Sprint(rr[0].Values[idIndx])
 	} else {
-		// user not found
+		// Use a dummy hash to ensure bcrypt comparison still runs
+		// This hash was generated with bcrypt.GenerateFromPassword([]byte("dummy"), 12)
+		storedPasswordHash = "$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW"
+		userID = ""
+	}
+
+	// Always verify the password (even with dummy hash if user doesn't exist)
+	// This ensures constant time regardless of username validity
+	passwordValid := Auth.CheckPasswordHash(password, storedPasswordHash)
+
+	// Only proceed if BOTH user exists AND password is valid
+	if userExists && passwordValid {
+		token := Auth.TokenGenerator()
+
+		// Build fields for session storage
+		var exp time.Time = Auth.GetExpirationFromNow()
+		var fields []SQLField
+		fields = append(fields, SQLField{FieldName: Auth.HashCodeFieldName, Value: token})
+		fields = append(fields, SQLField{FieldName: Auth.ExpTimeFieldName, Value: exp})
+
+		// Update user record with session token
+		_, err = m.Update(fields, userID)
+
+		if err != nil {
+			ServerError(w, err)
+			return
+		}
+
+		// Log messages
+		InfoMessage("Logged in successful")
+		if len(Auth.LoggedInMessage) > 0 {
+			Session.Put(r.Context(), "flash", Auth.LoggedInMessage)
+		}
+
+		//store session token
+		Session.Put(r.Context(), Auth.SessionKey, token)
+
+		// Set userdata in Auth.UserData
+		rr[0].Values[rr[0].GetFieldIndex(Auth.HashCodeFieldName)] = token
+		rr[0].Values[rr[0].GetFieldIndex(Auth.ExpTimeFieldName)] = exp
+		Auth.UserData = rr[0]
+
+		// Clear sensitive data from Auth.UserData
+		Auth.UserData.Values[Auth.UserData.GetFieldIndex(Auth.HashCodeFieldName)] = ""
+		Auth.UserData.Values[Auth.UserData.GetFieldIndex(Auth.PasswordFieldName)] = ""
+
+		// Redirect on success
+		if len(cOptions.next) > 0 {
+			http.Redirect(w, r, string(cOptions.next), http.StatusSeeOther)
+		} else {
+			c.viewAction(w, r)
+		}
+	} else {
+		// wrong password
 		InfoMessage("Login Fail")
 		if len(Auth.LoginFailMessage) > 0 {
 			Session.Put(r.Context(), "error", Auth.LoginFailMessage)
 		}
+
+		// Add small random delay to further prevent timing analysis
+		time.Sleep(time.Millisecond * time.Duration(50+rand.Intn(100)))
+
 		c.viewAction(w, r)
 		return
 	}
+
+	c.viewAction(w, r)
+	return
+
 }
 
 // viewAction is the View Action Function (CRUD), used for GET requests --- GET ---
