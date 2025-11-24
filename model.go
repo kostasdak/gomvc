@@ -380,6 +380,8 @@ func (m *Model) scanRows(r *sql.Rows) ([]ResultRow, error) {
 
 // Execute is function to execute custon query, same like GetRecords
 func (m *Model) Execute(q string, values ...interface{}) ([]ResultRow, error) {
+	InfoMessage("WARNING: Model.Execute() is deprecated. Use QueryBuilder instead.")
+
 	if m == nil {
 		return []ResultRow{}, errors.New("cannot perform action : Execute() on nil model")
 	}

@@ -136,7 +136,7 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	Session.Lifetime = 24 * time.Hour
 	Session.Cookie.Persist = true
 	Session.Cookie.SameSite = http.SameSiteLaxMode
-	Session.Cookie.Secure = true // Always HttpOnly for security <-> c.Config.Server.SessionSecure
+	Session.Cookie.Secure = true // Always Secure Cookie as default
 
 	// Set Secure flag based on environment
 	// In production/staging, require secure cookies
@@ -605,8 +605,13 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 	password := r.Form.Get(Auth.PasswordFieldName)
 
 	if len(username) == 0 || len(password) == 0 {
-		err = errors.New("POST does not include credential values, URL : " + rObj.baseUrl)
-		ServerError(w, err)
+		// Add delay to prevent timing leak
+		time.Sleep(time.Millisecond * time.Duration(200+rand.Intn(100)))
+		InfoMessage("Login failed: missing credentials")
+		if len(Auth.LoginFailMessage) > 0 {
+			Session.Put(r.Context(), "error", Auth.LoginFailMessage)
+		}
+		c.viewAction(w, r)
 		return
 	}
 
@@ -886,7 +891,7 @@ func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 
 	InfoMessage("Starting Create process !!!")
 
-	_, err = m.Save(fields)
+	_, err = m.Insert(fields)
 	if err != nil {
 		ServerError(w, err)
 		return

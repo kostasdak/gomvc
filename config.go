@@ -26,9 +26,11 @@ type ServerConf struct {
 // DatabaseConf set MySql server address, database name, username and password
 type DatabaseConf struct {
 	Server string
+	Port   int // Add this
 	Dbname string
 	Dbuser string
 	Dbpass string
+	UseTLS bool // Add this
 }
 
 // configValues is the map that holds the configuration values
@@ -139,6 +141,20 @@ func unmarshal(ncfg configValues) *AppConfig {
 	conf.Database.Dbname = fmt.Sprint(ncfg.Get("database:dbname"))
 	conf.Database.Dbuser = fmt.Sprint(ncfg.Get("database:dbuser"))
 	conf.Database.Dbpass = fmt.Sprint(ncfg.Get("database:dbpass"))
+
+	// Database port with default
+	if ncfg.Get("database:port") != nil {
+		conf.Database.Port = ncfg.Get("database:port").(int)
+	} else {
+		conf.Database.Port = 3306
+	}
+
+	// Database TLS - secure by default
+	if ncfg.Get("database:useTLS") != nil {
+		conf.Database.UseTLS = ncfg.Get("database:useTLS").(bool)
+	} else {
+		conf.Database.UseTLS = true // ✅ Secure by default
+	}
 
 	return conf
 }
