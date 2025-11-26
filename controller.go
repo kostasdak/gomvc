@@ -90,6 +90,9 @@ type Controller struct {
 	Router                  *chi.Mux
 	Config                  *AppConfig
 	Functions               template.FuncMap
+
+	IPRateLimiter   *RateLimiter // Rate limit by IP
+	UserRateLimiter *RateLimiter // Rate limit by username
 }
 
 // controllerOptions is a struct that holds options for each route in Controller
@@ -131,6 +134,29 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	c.DB = db
 	c.Config = cfg
 	c.Router = chi.NewRouter()
+
+	// Initialize rate limiters if enabled
+	if cfg.RateLimit.Enabled {
+		if cfg.RateLimit.IPMaxAttempts > 0 && cfg.RateLimit.IPBlockMinutes > 0 {
+			c.IPRateLimiter = NewRateLimiter(
+				cfg.RateLimit.IPMaxAttempts,
+				time.Minute*time.Duration(cfg.RateLimit.IPBlockMinutes),
+			)
+			InfoMessage(fmt.Sprintf("IP Rate Limiting enabled: %d attempts, %d minute block",
+				cfg.RateLimit.IPMaxAttempts, cfg.RateLimit.IPBlockMinutes))
+		}
+
+		if cfg.RateLimit.UsernameMaxAttempts > 0 && cfg.RateLimit.UsernameBlockMinutes > 0 {
+			c.UserRateLimiter = NewRateLimiter(
+				cfg.RateLimit.UsernameMaxAttempts,
+				time.Minute*time.Duration(cfg.RateLimit.UsernameBlockMinutes),
+			)
+			InfoMessage(fmt.Sprintf("Username Rate Limiting enabled: %d attempts, %d minute block",
+				cfg.RateLimit.UsernameMaxAttempts, cfg.RateLimit.UsernameBlockMinutes))
+		}
+	} else {
+		InfoMessage("Rate limiting is disabled")
+	}
 
 	Session = scs.New()
 	Session.Lifetime = 24 * time.Hour
@@ -600,6 +626,32 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 
 	m := c.Models[rObj.baseUrl]
 
+	// Check IP-based rate limit FIRST
+	// Get client IP
+	clientIP := getClientIP(r)
+
+	if c.IPRateLimiter != nil {
+		if c.IPRateLimiter.IsBlocked(clientIP) {
+			//blockedUntil := c.IPRateLimiter.GetBlockedUntil(clientIP)
+			InfoMessage("Login attempt from blocked IP: " + clientIP)
+
+			// Generic error message (don't reveal rate limiting)
+			if len(Auth.LoginFailMessage) > 0 {
+				Session.Put(r.Context(), "error", Auth.LoginFailMessage)
+			}
+
+			// Optional: Set a more specific message
+			Session.Put(r.Context(), "error",
+				"Too many failed attempts. Please try again later.")
+
+			// Add delay to further slow down attackers
+			time.Sleep(time.Second * 2)
+
+			c.viewAction(w, r)
+			return
+		}
+	}
+
 	// Validate credentials are present
 	username := r.Form.Get(Auth.UsernameFieldName)
 	password := r.Form.Get(Auth.PasswordFieldName)
@@ -613,6 +665,27 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 		}
 		c.viewAction(w, r)
 		return
+	}
+
+	// Check username-based rate limit
+	if c.UserRateLimiter != nil {
+		if c.UserRateLimiter.IsBlocked(username) {
+			//blockedUntil := c.UserRateLimiter.GetBlockedUntil(username)
+			InfoMessage("Login attempt for blocked username: " + username)
+
+			// Record IP attempt too
+			if c.IPRateLimiter != nil {
+				c.IPRateLimiter.RecordFailedAttempt(clientIP)
+			}
+
+			if len(Auth.LoginFailMessage) > 0 {
+				Session.Put(r.Context(), "error", Auth.LoginFailMessage)
+			}
+
+			time.Sleep(time.Second * 2)
+			c.viewAction(w, r)
+			return
+		}
 	}
 
 	// Build filter for username lookup
@@ -668,6 +741,14 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 
 	// Only proceed if BOTH user exists AND password is valid
 	if userExists && passwordValid {
+		// Reset rate limits on successful login
+		if c.IPRateLimiter != nil {
+			c.IPRateLimiter.ResetAttempts(clientIP)
+		}
+		if c.UserRateLimiter != nil {
+			c.UserRateLimiter.ResetAttempts(username)
+		}
+
 		token := Auth.TokenGenerator()
 
 		// Build fields for session storage
@@ -709,6 +790,14 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 			c.viewAction(w, r)
 		}
 	} else {
+		// Record failed attempts to RateLimiter
+		if c.IPRateLimiter != nil {
+			c.IPRateLimiter.RecordFailedAttempt(clientIP)
+		}
+		if c.UserRateLimiter != nil {
+			c.UserRateLimiter.RecordFailedAttempt(username)
+		}
+
 		// wrong password
 		InfoMessage("Login Fail")
 		if len(Auth.LoginFailMessage) > 0 {
@@ -723,8 +812,6 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.viewAction(w, r)
-	return
-
 }
 
 // viewAction is the View Action Function (CRUD), used for GET requests --- GET ---
