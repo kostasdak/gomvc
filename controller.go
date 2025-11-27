@@ -970,6 +970,23 @@ func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Check if session is Linux-authenticated
+func (c *Controller) IsSessionLinuxAuth(r *http.Request) bool {
+	if !Session.Exists(r.Context(), Auth.SessionKey) {
+		return false
+	}
+	authType := Session.GetString(r.Context(), "auth_type")
+	return authType == "linux_system"
+}
+
+// Get Linux username from session
+func (c *Controller) GetLinuxUsername(r *http.Request) string {
+	if !c.IsSessionLinuxAuth(r) {
+		return ""
+	}
+	return Session.GetString(r.Context(), "linux_username")
+}
+
 // viewAction is the View Action Function (CRUD), used for GET requests --- GET ---
 func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	var rr []ResultRow
