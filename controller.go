@@ -371,6 +371,52 @@ func (c *Controller) RegisterAuthAction(authURL string, nextURL string, model *M
 	c.Router.With(noSurf).Post(authURL, c.authAction)
 }
 
+// RegisterAuthActionLinux register controller action - route, next, action and model
+// is used to register the authentication actions
+func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, model *Model, authObject AuthObject) {
+	if c.Router == nil {
+		log.Fatal("Controller is not initialized")
+		return
+	}
+	if model == nil {
+		log.Fatal("AUth Controller needs model")
+		return
+	}
+	if c.Options == nil {
+		c.Options = make(map[string]controllerOptions, 0)
+	}
+	if c.Models == nil {
+		c.Models = make(map[string]*Model, 0)
+	}
+
+	route := ActionRouting{URL: authURL, NeedsAuth: true}
+
+	cKey := route.getControllerOptionsKey(9)
+	authObject.authURL = authURL
+	Auth = authObject
+
+	fmt.Println("Registering Auth route :", route.URL, " -> ", cKey)
+
+	if len(model.Fields) == 0 {
+		err := model.InitModel(c.DB, model.TableName, model.PKField)
+		if err != nil {
+			err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
+			ServerError(nil, err)
+			log.Fatal()
+			return
+		}
+	}
+	c.Models[cKey] = model
+
+	c.Options[cKey] = controllerOptions{next: nextURL, action: 9, hasTable: true}
+
+	// View
+	c.Router.With(noSurf).Get(authURL, c.viewAction)
+
+	// Post username / password / credentials
+	c.Router.With(noSurf).Post(authURL, c.authActionLinux)
+}
+
 // RegisterCustomAction register controller action - route, next, action and model
 // RegisterAction, RegisterAuthAction, RegisterCustomAction are the most important functions in the gomvc package
 // all functions are responsible for processing requests and generating responses.
@@ -812,6 +858,116 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.viewAction(w, r)
+}
+
+// authActionLinux authenticates against Linux system users
+func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	Session.RenewToken(r.Context())
+	rObj := parseRequest(r, c.TemplateHomePage)
+
+	cOptions, ok := c.Options[rObj.baseUrl]
+	if !ok {
+		err = errors.New("controller has no options, URL : " + rObj.baseUrl)
+		ServerError(w, err)
+		return
+	}
+
+	clientIP := getClientIP(r)
+
+	// Check IP rate limit
+	if c.IPRateLimiter != nil {
+		if c.IPRateLimiter.IsBlocked(clientIP) {
+			InfoMessage("Linux auth attempt from blocked IP: " + clientIP)
+			if len(Auth.LoginFailMessage) > 0 {
+				Session.Put(r.Context(), "error", Auth.LoginFailMessage)
+			}
+			time.Sleep(time.Second * 2)
+			c.viewAction(w, r)
+			return
+		}
+	}
+
+	username := r.Form.Get(Auth.UsernameFieldName)
+	password := r.Form.Get(Auth.PasswordFieldName)
+
+	if len(username) == 0 || len(password) == 0 {
+		if c.IPRateLimiter != nil {
+			c.IPRateLimiter.RecordFailedAttempt(clientIP)
+		}
+		time.Sleep(time.Millisecond * time.Duration(200+rand.Intn(100)))
+		InfoMessage("Linux auth failed: missing credentials from IP: " + clientIP)
+		if len(Auth.LoginFailMessage) > 0 {
+			Session.Put(r.Context(), "error", Auth.LoginFailMessage)
+		}
+		c.viewAction(w, r)
+		return
+	}
+
+	// Check username rate limit
+	if c.UserRateLimiter != nil {
+		if c.UserRateLimiter.IsBlocked(username) {
+			InfoMessage("Linux auth attempt for blocked username: " + username)
+			if c.IPRateLimiter != nil {
+				c.IPRateLimiter.RecordFailedAttempt(clientIP)
+			}
+			if len(Auth.LoginFailMessage) > 0 {
+				Session.Put(r.Context(), "error", Auth.LoginFailMessage)
+			}
+			time.Sleep(time.Second * 2)
+			c.viewAction(w, r)
+			return
+		}
+	}
+
+	// Authenticate against Linux
+	authenticated := authenticateLinuxUser(username, password)
+
+	if authenticated {
+		// SUCCESS
+		if c.IPRateLimiter != nil {
+			c.IPRateLimiter.ResetAttempts(clientIP)
+		}
+		if c.UserRateLimiter != nil {
+			c.UserRateLimiter.ResetAttempts(username)
+		}
+
+		token := Auth.TokenGenerator()
+		InfoMessage("Linux auth successful for user: " + username + " from IP: " + clientIP)
+
+		if len(Auth.LoggedInMessage) > 0 {
+			Session.Put(r.Context(), "flash", Auth.LoggedInMessage)
+		}
+
+		Session.Put(r.Context(), Auth.SessionKey, token)
+		Session.Put(r.Context(), "linux_username", username)
+		Session.Put(r.Context(), "auth_type", "linux_system")
+		Session.Put(r.Context(), "auth_ip", clientIP)
+		Session.Put(r.Context(), "auth_time", time.Now().UTC())
+
+		if len(cOptions.next) > 0 {
+			http.Redirect(w, r, string(cOptions.next), http.StatusSeeOther)
+		} else {
+			c.viewAction(w, r)
+		}
+	} else {
+		// FAILURE
+		if c.IPRateLimiter != nil {
+			c.IPRateLimiter.RecordFailedAttempt(clientIP)
+		}
+		if c.UserRateLimiter != nil {
+			c.UserRateLimiter.RecordFailedAttempt(username)
+		}
+
+		InfoMessage("Linux auth failed for user: " + username + " from IP: " + clientIP)
+		if len(Auth.LoginFailMessage) > 0 {
+			Session.Put(r.Context(), "error", Auth.LoginFailMessage)
+		}
+
+		time.Sleep(time.Millisecond * time.Duration(50+rand.Intn(100)))
+		c.viewAction(w, r)
+	}
 }
 
 // viewAction is the View Action Function (CRUD), used for GET requests --- GET ---

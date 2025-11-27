@@ -1,12 +1,16 @@
 package gomvc
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"regexp"
 	"runtime/debug"
 	"strings"
+	"time"
 )
 
 var infoLog *log.Logger
@@ -75,4 +79,32 @@ func getClientIP(r *http.Request) string {
 		ip = ip[:idx]
 	}
 	return ip
+}
+
+// authenticateLinuxUser validates against Linux using 'su' command
+func authenticateLinuxUser(username, password string) bool {
+	// Validate username format (prevent injection)
+	validUsername := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	if !validUsername.MatchString(username) {
+		InfoMessage("Invalid username format: " + username)
+		return false
+	}
+
+	if len(username) > 32 {
+		InfoMessage("Username too long: " + username)
+		return false
+	}
+
+	// 5-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Execute 'su -c exit username'
+	cmd := exec.CommandContext(ctx, "su", "-c", "exit", username)
+	cmd.Stdin = strings.NewReader(password + "\n")
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	err := cmd.Run()
+	return err == nil
 }
