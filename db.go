@@ -61,5 +61,5 @@ func ConnectDatabaseSQLite(dbname string) (*sql.DB, error) {
 		return nil, fmt.Errorf("SQLite ping failed: %w", err)
 	}
 
-	return db, err
+	return db, nil
 }
