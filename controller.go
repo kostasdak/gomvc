@@ -325,6 +325,60 @@ func (c *Controller) RegisterAction(route ActionRouting, action Action, model *M
 	}
 }
 
+// RegisterCustomAction register controller action - route, next, action and model
+// RegisterAction, RegisterAuthAction, RegisterCustomAction are the most important functions in the gomvc package
+// all functions are responsible for processing requests and generating responses.
+// RegisterCustomAction is used to register any custom action that doesn't fit the pre defined actions View, Create, Update, Delete
+func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model *Model, f http.HandlerFunc) {
+	if c.Router == nil {
+		log.Fatal("Controller is not initialized")
+		return
+	}
+	if c.Options == nil {
+		c.Options = make(map[string]controllerOptions, 0)
+	}
+	if c.Models == nil {
+		c.Models = make(map[string]*Model, 0)
+	}
+
+	hasTable := false
+	cKey := route.getControllerOptionsKey(Action(method))
+
+	if model != nil {
+		if len(model.Fields) == 0 {
+			err := model.InitModel(c.DB, model.TableName, model.PKField)
+			if err != nil {
+				err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
+				ServerError(nil, err)
+				log.Fatal()
+				return
+			}
+		}
+
+		c.Models[cKey] = model
+
+		hasTable = true
+	}
+
+	c.Options[cKey] = controllerOptions{next: route.NextURL, action: 0, hasTable: hasTable}
+
+	if method == HttpGET {
+		if route.IsWebHook {
+			c.Router.Get(route.URL, f)
+		} else {
+			c.Router.With(noSurf).Get(route.URL, f)
+		}
+
+	}
+	if method == HttpPOST {
+		if route.IsWebHook {
+			c.Router.Post(route.URL, f)
+		} else {
+			c.Router.With(noSurf).Post(route.URL, f)
+		}
+	}
+}
+
 // RegisterAuthAction register controller action - route, next, action and model
 // is used to register the authentication actions
 func (c *Controller) RegisterAuthAction(authURL string, nextURL string, model *Model, authObject AuthObject) {
@@ -415,60 +469,6 @@ func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, mod
 
 	// Post username / password / credentials
 	c.Router.With(noSurf).Post(authURL, c.authActionLinux)
-}
-
-// RegisterCustomAction register controller action - route, next, action and model
-// RegisterAction, RegisterAuthAction, RegisterCustomAction are the most important functions in the gomvc package
-// all functions are responsible for processing requests and generating responses.
-// RegisterCustomAction is used to register any custom action that doesn't fit the pre defined actions View, Create, Update, Delete
-func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model *Model, f http.HandlerFunc) {
-	if c.Router == nil {
-		log.Fatal("Controller is not initialized")
-		return
-	}
-	if c.Options == nil {
-		c.Options = make(map[string]controllerOptions, 0)
-	}
-	if c.Models == nil {
-		c.Models = make(map[string]*Model, 0)
-	}
-
-	hasTable := false
-	cKey := route.getControllerOptionsKey(Action(method))
-
-	if model != nil {
-		if len(model.Fields) == 0 {
-			err := model.InitModel(c.DB, model.TableName, model.PKField)
-			if err != nil {
-				err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
-				ServerError(nil, err)
-				log.Fatal()
-				return
-			}
-		}
-
-		c.Models[cKey] = model
-
-		hasTable = true
-	}
-
-	c.Options[cKey] = controllerOptions{next: route.NextURL, action: 0, hasTable: hasTable}
-
-	if method == HttpGET {
-		if route.IsWebHook {
-			c.Router.Get(route.URL, f)
-		} else {
-			c.Router.With(noSurf).Get(route.URL, f)
-		}
-
-	}
-	if method == HttpPOST {
-		if route.IsWebHook {
-			c.Router.Post(route.URL, f)
-		} else {
-			c.Router.With(noSurf).Post(route.URL, f)
-		}
-	}
 }
 
 // CreateTemplateCache loads the template files and creates a cache of templates in controller.
