@@ -903,7 +903,11 @@ func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate against Linux
+	InfoMessage("authenticating Linux User ... " + username + "/" + password)
 	authenticated := authenticateLinuxUser(username, password)
+	if !authenticated {
+		InfoMessage("... Failed to authenticate!")
+	}
 
 	if authenticated {
 		// SUCCESS
