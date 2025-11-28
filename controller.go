@@ -134,6 +134,7 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	c.DB = db
 	c.Config = cfg
 	c.Router = chi.NewRouter()
+	InitHelpers(c.Config)
 
 	// Initialize rate limiters if enabled
 	if cfg.RateLimit.Enabled {
@@ -178,8 +179,6 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	c.Router.Use(secureHeaders(cfg))
 
 	c.Router.Use(sessionLoad)
-
-	InitHelpers(c.Config)
 }
 
 // noSurf midleware ... is the CSRF protection middleware
@@ -427,15 +426,17 @@ func (c *Controller) RegisterAuthAction(authURL string, nextURL string, model *M
 
 // RegisterAuthActionLinux register controller action - route, next, action and model
 // is used to register the authentication actions
-func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, model *Model, authObject AuthObject) {
+func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, authObject AuthObject) {
 	if c.Router == nil {
 		log.Fatal("Controller is not initialized")
 		return
 	}
-	if model == nil {
-		log.Fatal("AUth Controller needs model")
-		return
-	}
+
+	//if model == nil {
+	//	log.Fatal("Auth Controller needs model")
+	//	return
+	//}
+
 	if c.Options == nil {
 		c.Options = make(map[string]controllerOptions, 0)
 	}
@@ -451,7 +452,7 @@ func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, mod
 
 	fmt.Println("Registering Auth route :", route.URL, " -> ", cKey)
 
-	if len(model.Fields) == 0 {
+	/*if len(model.Fields) == 0 {
 		err := model.InitModel(c.DB, model.TableName, model.PKField)
 		if err != nil {
 			err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
@@ -459,8 +460,8 @@ func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, mod
 			log.Fatal()
 			return
 		}
-	}
-	c.Models[cKey] = model
+	}*/
+	c.Models[cKey] = nil
 
 	c.Options[cKey] = controllerOptions{next: nextURL, action: 9, hasTable: true}
 
