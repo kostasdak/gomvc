@@ -141,7 +141,7 @@ func unmarshal(ncfg configValues) *AppConfig {
 		conf.ShowStackOnError = ncfg.Get("ShowStackOnError").(bool)
 	}
 	if ncfg.Get("server:Port") != nil {
-		conf.Server.Port = ncfg.Get("server:port").(int)
+		conf.Server.Port = ncfg.Get("server:Port").(int)
 	}
 	if ncfg.Get("server:SessionSecure") != nil {
 		conf.Server.SessionSecure = ncfg.Get("server:SessionSecure").(bool)
