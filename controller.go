@@ -432,18 +432,9 @@ func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, aut
 		return
 	}
 
-	//if model == nil {
-	//	log.Fatal("Auth Controller needs model")
-	//	return
-	//}
-
 	if c.Options == nil {
 		c.Options = make(map[string]controllerOptions, 0)
 	}
-	if c.Models == nil {
-		c.Models = make(map[string]*Model, 0)
-	}
-
 	route := ActionRouting{URL: authURL, NeedsAuth: true}
 
 	cKey := route.getControllerOptionsKey(9)
@@ -452,18 +443,7 @@ func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, aut
 
 	fmt.Println("Registering Auth route :", route.URL, " -> ", cKey)
 
-	/*if len(model.Fields) == 0 {
-		err := model.InitModel(c.DB, model.TableName, model.PKField)
-		if err != nil {
-			err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
-			ServerError(nil, err)
-			log.Fatal()
-			return
-		}
-	}*/
-	c.Models[cKey] = nil
-
-	c.Options[cKey] = controllerOptions{next: nextURL, action: 9, hasTable: true}
+	c.Options[cKey] = controllerOptions{next: nextURL, action: 9, hasTable: false}
 
 	// View
 	c.Router.With(noSurf).Get(authURL, c.viewAction)
