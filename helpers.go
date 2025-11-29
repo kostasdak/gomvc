@@ -108,3 +108,156 @@ func authenticateLinuxUser(username, password string) bool {
 	err := cmd.Run()
 	return err == nil
 }
+
+// CenterText centers a string within a specified width and surrounds it with a decorator character
+// Examples:
+//
+//	CenterText("Hello", 20, '=')  → "====== Hello ======="
+//	CenterText("GoMVC", 30, '-')  → "------------ GoMVC ------------"
+//	CenterText("Title", 15, '*')  → "**** Title *****"
+func CenterText(text string, length int, deco rune) string {
+	// Add spaces before and after text
+	textWithSpaces := " " + text + " "
+
+	// Get actual text length (handles Unicode properly)
+	textLen := len([]rune(textWithSpaces))
+
+	// If text is longer than desired length, return as-is
+	if textLen >= length {
+		return textWithSpaces
+	}
+
+	// Calculate total padding needed
+	totalPadding := length - textLen
+
+	// Split padding between left and right
+	leftPadding := totalPadding / 2
+	rightPadding := totalPadding - leftPadding
+
+	// Build the result
+	var result strings.Builder
+	result.Grow(length) // Pre-allocate space for efficiency
+
+	// Add left padding
+	for i := 0; i < leftPadding; i++ {
+		result.WriteRune(deco)
+	}
+
+	// Add text with spaces
+	result.WriteString(textWithSpaces)
+
+	// Add right padding
+	for i := 0; i < rightPadding; i++ {
+		result.WriteRune(deco)
+	}
+
+	return result.String()
+}
+
+// CenterTextSpaced centers text with spaces and adds decorators at edges
+// Examples:
+//
+//	CenterTextSpaced("Hello", 20, '|')  → "|      Hello       |"
+//	CenterTextSpaced("GoMVC", 30, '*')  → "*          GoMVC           *"
+func CenterTextSpaced(text string, length int, deco rune) string {
+	textLen := len([]rune(text))
+
+	// Need at least 2 characters for decorators
+	if length < 2 {
+		return text
+	}
+
+	// If text is too long for decorators, return text only
+	if textLen >= length-2 {
+		return text
+	}
+
+	// Available space for text and padding (minus 2 decorators)
+	availableSpace := length - 2
+	totalPadding := availableSpace - textLen
+	leftPadding := totalPadding / 2
+	rightPadding := totalPadding - leftPadding
+
+	var result strings.Builder
+	result.Grow(length)
+
+	// Left decorator
+	result.WriteRune(deco)
+
+	// Left padding
+	for i := 0; i < leftPadding; i++ {
+		result.WriteRune(' ')
+	}
+
+	// Text
+	result.WriteString(text)
+
+	// Right padding
+	for i := 0; i < rightPadding; i++ {
+		result.WriteRune(' ')
+	}
+
+	// Right decorator
+	result.WriteRune(deco)
+
+	return result.String()
+}
+
+// CreateBanner creates a multi-line banner with title and subtitle
+// Example:
+//
+//	banner := CreateBanner("GoMVC Server", "Port 8080", 40, '=')
+//	for _, line := range banner {
+//	    fmt.Println(line)
+//	}
+func CreateBanner(title, subtitle string, width int, deco rune) []string {
+	var lines []string
+
+	// Top border
+	lines = append(lines, strings.Repeat(string(deco), width))
+
+	// Empty line
+	lines = append(lines, CenterTextSpaced("", width, deco))
+
+	// Title
+	lines = append(lines, CenterTextSpaced(title, width, deco))
+
+	// Subtitle (if provided)
+	if subtitle != "" {
+		lines = append(lines, CenterTextSpaced(subtitle, width, deco))
+	}
+
+	// Empty line
+	lines = append(lines, CenterTextSpaced("", width, deco))
+
+	// Bottom border
+	lines = append(lines, strings.Repeat(string(deco), width))
+
+	return lines
+}
+
+// CreateBox creates a boxed text with decorators
+// Example:
+//
+//	lines := CreateBox("Hello", 15, '=')
+//	for _, line := range lines {
+//	    fmt.Println(line)
+//	}
+//	Output:
+//	===============
+//	=====Hello=====
+//	===============
+func CreateBox(text string, width int, deco rune) []string {
+	lines := make([]string, 3)
+
+	// Top line
+	lines[0] = strings.Repeat(string(deco), width)
+
+	// Middle line with text
+	lines[1] = CenterText(text, width, deco)
+
+	// Bottom line
+	lines[2] = strings.Repeat(string(deco), width)
+
+	return lines
+}

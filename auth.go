@@ -129,22 +129,24 @@ func (a *AuthObject) KillAuthSession(w http.ResponseWriter, r *http.Request) err
 			// Return nil
 			return nil
 		} else {
-			token := Session.Get(r.Context(), a.SessionKey).(string)
-			f := make([]Filter, 0)
-			f = append(f, Filter{Field: a.HashCodeFieldName, Operator: "=", Value: token})
-			user_rr, err := a.Model.GetRecords(f, 1)
-			if err != nil {
-				// Return error
-				return err
+			if a.Model.DB != nil {
+				token := Session.Get(r.Context(), a.SessionKey).(string)
+				f := make([]Filter, 0)
+				f = append(f, Filter{Field: a.HashCodeFieldName, Operator: "=", Value: token})
+				user_rr, err := a.Model.GetRecords(f, 1)
+				if err != nil {
+					// Return error
+					return err
+				}
+				t1 := time.Now().UTC().Add(-1)
+				id_indx := user_rr[0].GetFieldIndex(a.Model.PKField)
+				userId := user_rr[0].Values[id_indx]
+
+				fld := make([]SQLField, 0)
+				fld = append(fld, SQLField{FieldName: a.ExpTimeFieldName, Value: t1})
+				a.Model.Update(fld, fmt.Sprint(userId))
 			}
-			t1 := time.Now().UTC().Add(-1)
-			id_indx := user_rr[0].GetFieldIndex(a.Model.PKField)
-			userId := user_rr[0].Values[id_indx]
-
-			fld := make([]SQLField, 0)
-			fld = append(fld, SQLField{FieldName: a.ExpTimeFieldName, Value: t1})
-			a.Model.Update(fld, fmt.Sprint(userId))
-
+			Session.Destroy(r.Context())
 			return nil
 		}
 	}

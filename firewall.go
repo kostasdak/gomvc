@@ -292,9 +292,8 @@ func checkMacOSFirewall(port int) FirewallInfo {
 
 // DisplayFirewallHelp displays helpful firewall information
 func DisplayFirewallHelp(port int) {
-	InfoMessage("========================================")
-	InfoMessage("   FIREWALL CONFIGURATION CHECK")
 
+	InfoMessage(CenterText("FIREWALL CONFIGURATION CHECK", 40, '='))
 	firewallInfo := CheckFirewall(port)
 
 	if firewallInfo.Detected {
@@ -311,8 +310,6 @@ func DisplayFirewallHelp(port int) {
 	} else {
 		InfoMessage("No firewall detected or firewall is not active")
 	}
-
-	InfoMessage("========================================")
 }
 
 // getStatusText returns human-readable status

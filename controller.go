@@ -295,10 +295,9 @@ func (c *Controller) RegisterAction(route ActionRouting, action Action, model *M
 	}
 
 	// Show log message
-	if len(c.Router.Routes()) == 0 {
+	if len(c.Options) == 0 {
 		fmt.Println("")
-		InfoMessage("================================")
-		InfoMessage("   REGISTERING ROUTER ACTIONS")
+		InfoMessage(CenterText("REGISTERING ROUTER ACTIONS", 40, '='))
 	}
 
 	hasTable := false
@@ -354,14 +353,15 @@ func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model
 	}
 
 	// Show log message
-	if len(c.Router.Routes()) == 0 {
+	if len(c.Options) == 0 {
 		fmt.Println("")
-		InfoMessage("================================")
-		InfoMessage("   REGISTERING ROUTER ACTIONS")
+		InfoMessage(CenterText("REGISTERING ROUTER ACTIONS", 40, '='))
 	}
 
 	hasTable := false
 	cKey := route.getControllerOptionsKey(Action(method))
+
+	fmt.Println("Registering route :", route.URL, " -> ", cKey)
 
 	if model != nil {
 		if len(model.Fields) == 0 {
@@ -417,10 +417,9 @@ func (c *Controller) RegisterAuthAction(authURL string, nextURL string, model *M
 	}
 
 	// Show log message
-	if len(c.Router.Routes()) == 0 {
+	if len(c.Options) == 0 {
 		fmt.Println("")
-		InfoMessage("================================")
-		InfoMessage("   REGISTERING ROUTER ACTIONS")
+		InfoMessage(CenterText("REGISTERING ROUTER ACTIONS", 40, '='))
 	}
 
 	route := ActionRouting{URL: authURL, NeedsAuth: true}
@@ -464,10 +463,9 @@ func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, aut
 	}
 
 	// Show log message
-	if len(c.Router.Routes()) == 0 {
+	if len(c.Options) == 0 {
 		fmt.Println("")
-		InfoMessage("================================")
-		InfoMessage("   REGISTERING ROUTER ACTIONS")
+		InfoMessage(CenterText("REGISTERING ROUTER ACTIONS", 40, '='))
 	}
 
 	route := ActionRouting{URL: authURL, NeedsAuth: true}
@@ -490,8 +488,8 @@ func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, aut
 // CreateTemplateCache loads the template files and creates a cache of templates in controller.
 func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplateFileName string) error {
 	fmt.Println("")
-	InfoMessage("============================")
-	InfoMessage("   READING TEMPLATE FILES")
+
+	InfoMessage(CenterText("READING TEMPLATE FILES", 40, '='))
 
 	if c.Router == nil {
 		log.Fatal("Controller is not initialized")
@@ -529,8 +527,6 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 
 		myCache[name] = TemplateObject{template: ts, filename: page}
 	}
-
-	InfoMessage("============================")
 
 	c.TemplateCache = myCache
 
