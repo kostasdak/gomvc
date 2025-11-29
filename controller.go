@@ -768,6 +768,7 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 
 	// Only proceed if BOTH user exists AND password is valid
 	if userExists && passwordValid {
+		// SUCCESS
 		// Reset rate limits on successful login
 		if c.IPRateLimiter != nil {
 			c.IPRateLimiter.ResetAttempts(clientIP)
@@ -777,6 +778,7 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		token := Auth.TokenGenerator()
+		InfoMessage("Auth successful for user: " + username + " from IP: " + clientIP)
 
 		// Build fields for session storage
 		var exp time.Time = Auth.GetExpirationFromNow()
@@ -792,8 +794,7 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Log messages
-		InfoMessage("Logged in successful")
+		// Put log message in session
 		if len(Auth.LoggedInMessage) > 0 {
 			Session.Put(r.Context(), "flash", Auth.LoggedInMessage)
 		}
@@ -817,6 +818,7 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 			c.viewAction(w, r)
 		}
 	} else {
+		// FAILURE
 		// Record failed attempts to RateLimiter
 		if c.IPRateLimiter != nil {
 			c.IPRateLimiter.RecordFailedAttempt(clientIP)
@@ -825,8 +827,8 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 			c.UserRateLimiter.RecordFailedAttempt(username)
 		}
 
-		// wrong password
-		InfoMessage("Login Fail")
+		// Log failed login
+		InfoMessage("Auth failed for user: " + username + " from IP: " + clientIP)
 		if len(Auth.LoginFailMessage) > 0 {
 			Session.Put(r.Context(), "error", Auth.LoginFailMessage)
 		}
@@ -921,6 +923,7 @@ func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
 		token := Auth.TokenGenerator()
 		InfoMessage("Linux auth successful for user: " + username + " from IP: " + clientIP)
 
+		// Put log message in session
 		if len(Auth.LoggedInMessage) > 0 {
 			Session.Put(r.Context(), "flash", Auth.LoggedInMessage)
 		}
@@ -929,7 +932,7 @@ func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
 		Session.Put(r.Context(), "linux_username", username)
 		Session.Put(r.Context(), "auth_type", "linux_system")
 		Session.Put(r.Context(), "auth_ip", clientIP)
-		Session.Put(r.Context(), "auth_time", time.Now().UTC())
+		Session.Put(r.Context(), "auth_time", time.Now().UTC().Add(Auth.ExpireAfterIdle))
 
 		if len(cOptions.next) > 0 {
 			http.Redirect(w, r, string(cOptions.next), http.StatusSeeOther)
@@ -945,11 +948,13 @@ func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
 			c.UserRateLimiter.RecordFailedAttempt(username)
 		}
 
+		// Log failed login
 		InfoMessage("Linux auth failed for user: " + username + " from IP: " + clientIP)
 		if len(Auth.LoginFailMessage) > 0 {
 			Session.Put(r.Context(), "error", Auth.LoginFailMessage)
 		}
 
+		// Add small random delay to further prevent timing analysis
 		time.Sleep(time.Millisecond * time.Duration(50+rand.Intn(100)))
 		c.viewAction(w, r)
 	}

@@ -52,7 +52,7 @@ func (a *AuthObject) IsSessionExpired(r *http.Request) (bool, error) {
 			InfoMessage("Auth Key [" + a.SessionKey + "] is active")
 			token := Session.Get(r.Context(), a.SessionKey).(string)
 
-			// Check if model exists
+			// Check if model exists, check timeout against database and update, else use session values
 			if a.Model.DB != nil {
 				f := make([]Filter, 0)
 				f = append(f, Filter{Field: a.HashCodeFieldName, Operator: "=", Value: token})
@@ -94,8 +94,8 @@ func (a *AuthObject) IsSessionExpired(r *http.Request) (bool, error) {
 					return true, nil
 				}
 			} else {
+				// Check timeout against session values
 				t1 := time.Now().UTC()
-				Session.Put(r.Context(), "auth_time", time.Now().UTC())
 				t2 := Session.Get(r.Context(), "auth_time").(time.Time)
 				// Compare UTC time with time in session
 				if t1.After(t2) {
@@ -105,6 +105,9 @@ func (a *AuthObject) IsSessionExpired(r *http.Request) (bool, error) {
 					// Return [true] -> Redirect
 					return true, nil
 				}
+				// Update idle value, session is not expired, user is still authenticated
+				Session.Put(r.Context(), "auth_time", time.Now().UTC().Add(Auth.ExpireAfterIdle))
+				return false, nil
 			}
 		}
 	}
