@@ -52,27 +52,52 @@ func (a *AuthObject) IsSessionExpired(r *http.Request) (bool, error) {
 			InfoMessage("Auth Key [" + a.SessionKey + "] is active")
 			token := Session.Get(r.Context(), a.SessionKey).(string)
 
-			f := make([]Filter, 0)
-			f = append(f, Filter{Field: a.HashCodeFieldName, Operator: "=", Value: token})
-			if len(a.ExtraConditions) > 0 {
-				for _, v := range a.ExtraConditions {
-					f = append(f, Filter{Field: v.Field, Operator: v.Operator, Value: v.Value, Logic: "AND"})
+			// Check if model exists
+			if a.Model.DB != nil {
+				f := make([]Filter, 0)
+				f = append(f, Filter{Field: a.HashCodeFieldName, Operator: "=", Value: token})
+				if len(a.ExtraConditions) > 0 {
+					for _, v := range a.ExtraConditions {
+						f = append(f, Filter{Field: v.Field, Operator: v.Operator, Value: v.Value, Logic: "AND"})
+					}
 				}
-			}
-			user_rr, err := a.Model.GetRecords(f, 1)
-			if err != nil {
-				// Return [true] + error
-				return true, err
-			}
-			//User exists
-			if len(user_rr) > 0 {
-				t1 := time.Now().UTC()
-				t2_indx := user_rr[0].GetFieldIndex(a.ExpTimeFieldName)
-				id_indx := user_rr[0].GetFieldIndex(a.Model.PKField)
-				t2 := user_rr[0].Values[t2_indx].(time.Time)
-				userId := user_rr[0].Values[id_indx]
 
-				// Compare UTC time with time in database
+				user_rr, err := a.Model.GetRecords(f, 1)
+				if err != nil {
+					// Return [true] + error
+					return true, err
+				}
+				//User exists
+				if len(user_rr) > 0 {
+					t1 := time.Now().UTC()
+					t2_indx := user_rr[0].GetFieldIndex(a.ExpTimeFieldName)
+					id_indx := user_rr[0].GetFieldIndex(a.Model.PKField)
+					t2 := user_rr[0].Values[t2_indx].(time.Time)
+					userId := user_rr[0].Values[id_indx]
+
+					// Compare UTC time with time in database
+					if t1.After(t2) {
+						// idle limit expired -> login again
+						InfoMessage("Idle time expired, please sign in again")
+
+						// Return [true] -> Redirect
+						return true, nil
+					}
+
+					// Update idle value, session is not expired, user is still authenticated
+					fld := make([]SQLField, 0)
+					fld = append(fld, SQLField{FieldName: a.ExpTimeFieldName, Value: a.GetExpirationFromNow()})
+					a.Model.Update(fld, fmt.Sprint(userId))
+					return false, nil
+				} else {
+					InfoMessage("User not found in database, cookie value not match")
+					return true, nil
+				}
+			} else {
+				t1 := time.Now().UTC()
+				Session.Put(r.Context(), "auth_time", time.Now().UTC())
+				t2 := Session.Get(r.Context(), "auth_time").(time.Time)
+				// Compare UTC time with time in session
 				if t1.After(t2) {
 					// idle limit expired -> login again
 					InfoMessage("Idle time expired, please sign in again")
@@ -80,15 +105,6 @@ func (a *AuthObject) IsSessionExpired(r *http.Request) (bool, error) {
 					// Return [true] -> Redirect
 					return true, nil
 				}
-
-				// Update idle value, session is not expired, user is still authenticated
-				fld := make([]SQLField, 0)
-				fld = append(fld, SQLField{FieldName: a.ExpTimeFieldName, Value: a.GetExpirationFromNow()})
-				a.Model.Update(fld, fmt.Sprint(userId))
-				return false, nil
-			} else {
-				InfoMessage("User not found in database, cookie value not match")
-				return true, nil
 			}
 		}
 	}

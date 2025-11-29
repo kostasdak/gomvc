@@ -984,6 +984,8 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 		err = errors.New("controller has no options, URL : " + rObj.baseUrl)
 		ServerError(w, err)
 		return
+	} else {
+		InfoMessage("Controller Options: " + cOptions.next + " | " + fmt.Sprint(cOptions.action) + " | " + fmt.Sprint(cOptions.hasTable) + " | " + fmt.Sprint(cOptions.needsAuth))
 	}
 
 	// Auth process
