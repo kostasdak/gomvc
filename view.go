@@ -31,8 +31,8 @@ func (c *Controller) View(t *template.Template, td *TemplateData, w http.Respons
 		if uc == true {
 
 			InfoMessage("Site is under construction ... redirecting to Underconstruction page")
-			InfoMessage("Remote Address : " + r.RemoteAddr)
-			InfoMessage("X-Forwarded-For : " + r.Header.Get("X-Forwarded-For"))
+			InfoMessage("Remote Address: " + r.RemoteAddr)
+			InfoMessage("X-Forwarded-For: " + r.Header.Get("X-Forwarded-For"))
 
 			tmp := strings.Split(r.RemoteAddr, ":")
 			rip := ""
@@ -52,7 +52,7 @@ func (c *Controller) View(t *template.Template, td *TemplateData, w http.Respons
 					for _, ip := range exips {
 						ip = strings.Trim(ip, " ")
 						if ip == rip {
-							InfoMessage("Request ip found in exclude list : " + ip)
+							InfoMessage("Request ip found in exclude list: " + ip)
 							uc = false
 						}
 					}

@@ -294,6 +294,13 @@ func (c *Controller) RegisterAction(route ActionRouting, action Action, model *M
 		c.Models = make(map[string]*Model, 0)
 	}
 
+	// Show log message
+	if len(c.Router.Routes()) == 0 {
+		fmt.Println("")
+		InfoMessage("================================")
+		InfoMessage("   REGISTERING ROUTER ACTIONS")
+	}
+
 	hasTable := false
 	cKey := route.getControllerOptionsKey(action)
 
@@ -303,7 +310,7 @@ func (c *Controller) RegisterAction(route ActionRouting, action Action, model *M
 		if len(model.Fields) == 0 {
 			err := model.InitModel(c.DB, model.TableName, model.PKField)
 			if err != nil {
-				err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
+				err = errors.New("Error initializing Model for table: " + model.TableName + "\n" + err.Error())
 				ServerError(nil, err)
 				log.Fatal()
 				return
@@ -346,6 +353,13 @@ func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model
 		c.Models = make(map[string]*Model, 0)
 	}
 
+	// Show log message
+	if len(c.Router.Routes()) == 0 {
+		fmt.Println("")
+		InfoMessage("================================")
+		InfoMessage("   REGISTERING ROUTER ACTIONS")
+	}
+
 	hasTable := false
 	cKey := route.getControllerOptionsKey(Action(method))
 
@@ -353,7 +367,7 @@ func (c *Controller) RegisterCustomAction(route ActionRouting, method int, model
 		if len(model.Fields) == 0 {
 			err := model.InitModel(c.DB, model.TableName, model.PKField)
 			if err != nil {
-				err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
+				err = errors.New("Error initializing Model for table: " + model.TableName + "\n" + err.Error())
 				ServerError(nil, err)
 				log.Fatal()
 				return
@@ -402,18 +416,25 @@ func (c *Controller) RegisterAuthAction(authURL string, nextURL string, model *M
 		c.Models = make(map[string]*Model, 0)
 	}
 
+	// Show log message
+	if len(c.Router.Routes()) == 0 {
+		fmt.Println("")
+		InfoMessage("================================")
+		InfoMessage("   REGISTERING ROUTER ACTIONS")
+	}
+
 	route := ActionRouting{URL: authURL, NeedsAuth: true}
 
 	cKey := route.getControllerOptionsKey(9)
 	authObject.authURL = authURL
 	Auth = authObject
 
-	fmt.Println("Registering Auth route :", route.URL, " -> ", cKey)
+	fmt.Println("Registering Auth route:", route.URL, " -> ", cKey)
 
 	if len(model.Fields) == 0 {
 		err := model.InitModel(c.DB, model.TableName, model.PKField)
 		if err != nil {
-			err = errors.New("Error initializing Model for table : " + model.TableName + "\n" + err.Error())
+			err = errors.New("Error initializing Model for table: " + model.TableName + "\n" + err.Error())
 			ServerError(nil, err)
 			log.Fatal()
 			return
@@ -441,13 +462,21 @@ func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, aut
 	if c.Options == nil {
 		c.Options = make(map[string]controllerOptions, 0)
 	}
+
+	// Show log message
+	if len(c.Router.Routes()) == 0 {
+		fmt.Println("")
+		InfoMessage("================================")
+		InfoMessage("   REGISTERING ROUTER ACTIONS")
+	}
+
 	route := ActionRouting{URL: authURL, NeedsAuth: true}
 
 	cKey := route.getControllerOptionsKey(9)
 	authObject.authURL = authURL
 	Auth = authObject
 
-	fmt.Println("Registering Auth route :", route.URL, " -> ", cKey)
+	fmt.Println("Registering Auth route:", route.URL, " -> ", cKey)
 
 	c.Options[cKey] = controllerOptions{next: nextURL, action: 9, hasTable: false}
 
@@ -460,6 +489,10 @@ func (c *Controller) RegisterAuthActionLinux(authURL string, nextURL string, aut
 
 // CreateTemplateCache loads the template files and creates a cache of templates in controller.
 func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplateFileName string) error {
+	fmt.Println("")
+	InfoMessage("============================")
+	InfoMessage("   READING TEMPLATE FILES")
+
 	if c.Router == nil {
 		log.Fatal("Controller is not initialized")
 		return errors.New("Controller is not initialized")
@@ -477,10 +510,10 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 
 	for _, page := range pages {
 		name := filepath.Base(page)
-		fmt.Println("Loading page : " + page + " / name index : " + name)
+		fmt.Println("Loading page: " + page + " / name index: " + name)
 		ts, err := template.New(name).Funcs(c.Functions).ParseFiles(page)
 		if err != nil {
-			err = errors.New("page file not found : " + page + "\n" + err.Error())
+			err = errors.New("page file not found: " + page + "\n" + err.Error())
 			ServerError(nil, err)
 			log.Fatal()
 			return err
@@ -488,7 +521,7 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 
 		ts, err = ts.ParseGlob("./web/templates/" + layoutTemplateFileName)
 		if err != nil {
-			err = errors.New("layout file not found : " + page + "\n" + err.Error())
+			err = errors.New("layout file not found: " + page + "\n" + err.Error())
 			ServerError(nil, err)
 			log.Fatal()
 			return err
@@ -497,7 +530,10 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 		myCache[name] = TemplateObject{template: ts, filename: page}
 	}
 
+	InfoMessage("============================")
+
 	c.TemplateCache = myCache
+
 	return nil
 }
 
@@ -584,7 +620,7 @@ func parseRequest(r *http.Request, homePageFilename string) RequestObject {
 		for _, vv := range tmp2 {
 			tmp3 := strings.SplitN(vv, "=", 2)
 			if len(tmp3) > 1 {
-				//fmt.Println(">1 : ", tmp3)
+
 				var ppp = make(map[string]interface{}, 0)
 
 				urlStr, err := url.QueryUnescape(tmp3[1])
@@ -652,7 +688,7 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 
 	cOptions, ok := c.Options[rObj.baseUrl]
 	if !ok {
-		err = errors.New("controller has no options, URL : " + rObj.baseUrl)
+		err = errors.New("controller has no options, URL: " + rObj.baseUrl)
 		ServerError(w, err)
 		return
 	}
@@ -858,7 +894,7 @@ func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
 
 	cOptions, ok := c.Options[rObj.baseUrl]
 	if !ok {
-		err = errors.New("controller has no options, URL : " + rObj.baseUrl)
+		err = errors.New("controller has no options, URL: " + rObj.baseUrl)
 		ServerError(w, err)
 		return
 	}
@@ -992,7 +1028,7 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 
 	cOptions, ok := c.Options[rObj.baseUrl]
 	if !ok {
-		err = errors.New("controller has no options, URL : " + rObj.baseUrl)
+		err = errors.New("controller has no options, URL: " + rObj.baseUrl)
 		ServerError(w, err)
 		return
 	} else {
@@ -1062,7 +1098,7 @@ func (c *Controller) viewAction(w http.ResponseWriter, r *http.Request) {
 	/* Get page template from name */
 	page := rObj.cntrlr + "." + rObj.action + ".tmpl"
 
-	InfoMessage(" - File : " + page + " - URL : " + rObj.baseUrl + " - Params : " + fmt.Sprint(rObj.params))
+	InfoMessage(" - File: " + page + " - URL: " + rObj.baseUrl + " - Params: " + fmt.Sprint(rObj.params))
 
 	var t *template.Template
 	if c.Config.UseCache {
@@ -1133,7 +1169,7 @@ func (c *Controller) createAction(w http.ResponseWriter, r *http.Request) {
 
 	m, ok := c.Models[rObj.baseUrl]
 	if !ok {
-		err = errors.New("Model for controller : " + rObj.baseUrl + " not found")
+		err = errors.New("Model for controller: " + rObj.baseUrl + " not found")
 		ServerError(w, err)
 		return
 	}
@@ -1198,7 +1234,7 @@ func (c *Controller) updateAction(w http.ResponseWriter, r *http.Request) {
 
 	m, ok := c.Models[rObj.baseUrl]
 	if !ok {
-		err = errors.New("Model for controller : " + rObj.baseUrl + " not found")
+		err = errors.New("Model for controller: " + rObj.baseUrl + " not found")
 		ServerError(w, err)
 		return
 	}
@@ -1271,7 +1307,7 @@ func (c *Controller) deleteAction(w http.ResponseWriter, r *http.Request) {
 
 	m, ok := c.Models[rObj.baseUrl]
 	if !ok {
-		err = errors.New("Model for controller : " + rObj.baseUrl + " not found")
+		err = errors.New("Model for controller: " + rObj.baseUrl + " not found")
 		ServerError(w, err)
 		return
 	}

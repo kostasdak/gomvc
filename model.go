@@ -186,7 +186,7 @@ func (m *Model) Label(field string) string {
 // GetLastId is a function to get the last id from a Table/Model
 func (m *Model) GetLastId() (int64, error) {
 	if m == nil {
-		return 0, errors.New("cannot perform action : GetLastId() on nil model")
+		return 0, errors.New("cannot perform action: GetLastId() on nil model")
 	}
 
 	var q string
@@ -214,7 +214,7 @@ func (m *Model) GetLastId() (int64, error) {
 // GetRecords is function to execute a query against a table/model with filters (WHERE filters)
 func (m *Model) GetRecords(filters []Filter, limit int64) ([]ResultRow, error) {
 	if m == nil {
-		return []ResultRow{}, errors.New("cannot perform action : GetRecords() on nil model")
+		return []ResultRow{}, errors.New("cannot perform action: GetRecords() on nil model")
 	}
 
 	var r *sql.Rows
@@ -383,7 +383,7 @@ func (m *Model) Execute(q string, values ...interface{}) ([]ResultRow, error) {
 	InfoMessage("WARNING: Model.Execute() is deprecated. Use QueryBuilder instead.")
 
 	if m == nil {
-		return []ResultRow{}, errors.New("cannot perform action : Execute() on nil model")
+		return []ResultRow{}, errors.New("cannot perform action: Execute() on nil model")
 	}
 
 	m.lastQuery = q
@@ -440,7 +440,7 @@ func (m *Model) Save(fields []SQLField) (bool, error) {
 // Execute INSERT query
 func (m *Model) Insert(fields []SQLField) (bool, error) {
 	if m == nil {
-		return false, errors.New("cannot perform action : Insert() on nil model")
+		return false, errors.New("cannot perform action: Insert() on nil model")
 	}
 
 	q, values := BuildQuery(QueryTypeInsert, fields,
@@ -463,7 +463,7 @@ func (m *Model) Insert(fields []SQLField) (bool, error) {
 // Execute UPDATE query
 func (m *Model) Update(fields []SQLField, id string) (bool, error) {
 	if m == nil {
-		return false, errors.New("cannot perform action : Update() on nil model")
+		return false, errors.New("cannot perform action: Update() on nil model")
 	}
 
 	q, values := BuildQuery(QueryTypeUpdate, fields,
@@ -486,7 +486,7 @@ func (m *Model) Update(fields []SQLField, id string) (bool, error) {
 // Execute DELETE query
 func (m *Model) Delete(id string) (bool, error) {
 	if m == nil {
-		return false, errors.New("cannot perform action : Delete() on nil model")
+		return false, errors.New("cannot perform action: Delete() on nil model")
 	}
 
 	q, values := BuildQuery(QueryTypeDelete, []SQLField{},
