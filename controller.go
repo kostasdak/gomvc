@@ -134,7 +134,13 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	c.DB = db
 	c.Config = cfg
 	c.Router = chi.NewRouter()
+
 	InitHelpers(c.Config)
+
+	// Firewall ditection and help
+	if cfg.Server.Port > 0 {
+		DisplayFirewallHelp(cfg.Server.Port)
+	}
 
 	// Initialize rate limiters if enabled
 	if cfg.RateLimit.Enabled {
