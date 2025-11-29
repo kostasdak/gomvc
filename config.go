@@ -163,44 +163,29 @@ func unmarshal(ncfg configValues) *AppConfig {
 	if ncfg.Get("database:useTLS") != nil {
 		conf.Database.UseTLS = ncfg.Get("database:useTLS").(bool)
 	} else {
-		conf.Database.UseTLS = true // ✅ Secure by default
+		conf.Database.UseTLS = true // Secure by default
 	}
 
 	// Ratelimit configuration with secure defaults
 	if ncfg.Get("ratelimit:enabled") != nil {
 		conf.RateLimit.Enabled = ncfg.Get("ratelimit:enabled").(bool)
 	}
-	//else {
-	//	conf.RateLimit.Enabled = true // ✅ Enabled by default
-	//}
 
 	if ncfg.Get("ratelimit:ipMaxAttempts") != nil {
 		conf.RateLimit.IPMaxAttempts = ncfg.Get("ratelimit:ipMaxAttempts").(int)
 	}
-	//else {
-	//	conf.RateLimit.IPMaxAttempts = 10 // Default: 10 attempts
-	//}
 
 	if ncfg.Get("ratelimit:ipBlockMinutes") != nil {
 		conf.RateLimit.IPBlockMinutes = ncfg.Get("ratelimit:ipBlockMinutes").(int)
 	}
-	//else {
-	//	conf.RateLimit.IPBlockMinutes = 15 // Default: 15 minutes
-	//}
 
 	if ncfg.Get("ratelimit:usernameMaxAttempts") != nil {
 		conf.RateLimit.UsernameMaxAttempts = ncfg.Get("ratelimit:usernameMaxAttempts").(int)
 	}
-	//else {
-	//	conf.RateLimit.UsernameMaxAttempts = 5 // Default: 5 attempts
-	//}
 
 	if ncfg.Get("ratelimit:usernameBlockMinutes") != nil {
 		conf.RateLimit.UsernameBlockMinutes = ncfg.Get("ratelimit:usernameBlockMinutes").(int)
 	}
-	//else {
-	//	conf.RateLimit.UsernameBlockMinutes = 30 // Default: 30 minutes
-	//}
 
 	return conf
 }

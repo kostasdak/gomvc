@@ -139,11 +139,15 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 
 	// Firewall ditection and help
 	if cfg.Server.Port > 0 {
+		fmt.Println("")
 		DisplayFirewallHelp(cfg.Server.Port)
 	}
 
 	// Initialize rate limiters if enabled
+	fmt.Println("")
+	InfoMessage(CenterText("INITIALIZE RATE LIMITS", 40, '='))
 	if cfg.RateLimit.Enabled {
+		InfoMessage("Rate limiting is enabled")
 		if cfg.RateLimit.IPMaxAttempts > 0 && cfg.RateLimit.IPBlockMinutes > 0 {
 			c.IPRateLimiter = NewRateLimiter(
 				cfg.RateLimit.IPMaxAttempts,
@@ -151,6 +155,8 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 			)
 			InfoMessage(fmt.Sprintf("IP Rate Limiting enabled: %d attempts, %d minute block",
 				cfg.RateLimit.IPMaxAttempts, cfg.RateLimit.IPBlockMinutes))
+		} else {
+			InfoMessage("no IPMaxAttempts and IPBlockMinites found")
 		}
 
 		if cfg.RateLimit.UsernameMaxAttempts > 0 && cfg.RateLimit.UsernameBlockMinutes > 0 {
@@ -160,6 +166,8 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 			)
 			InfoMessage(fmt.Sprintf("Username Rate Limiting enabled: %d attempts, %d minute block",
 				cfg.RateLimit.UsernameMaxAttempts, cfg.RateLimit.UsernameBlockMinutes))
+		} else {
+			InfoMessage("no UsernameMaxAttempts and UsernameBlockMinutes found")
 		}
 	} else {
 		InfoMessage("Rate limiting is disabled")
