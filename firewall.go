@@ -1,4 +1,4 @@
-// firewall.go - Firewall detection and notification
+// Firewall detection and notification
 package gomvc
 
 import (
@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// FirewallInfo contains information about detected firewall
+// FirewallInfo struct contains information about detected firewall
 type FirewallInfo struct {
 	Detected    bool
 	Name        string
