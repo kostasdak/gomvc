@@ -23,6 +23,61 @@ type TemplateData struct {
 	Error        string
 }
 
+// ====================================================================== Template ready functions ======================================================================
+// FindValue searches for a key in the section data and returns its value
+func FindValue(data []interface{}, searchKey string) string {
+	for _, item := range data {
+		if str, ok := item.(string); ok {
+			// For ParseSystemInfo format: "Hostname: kostas-server"
+			if strings.Contains(str, ":") {
+				parts := strings.SplitN(str, ":", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					value := strings.TrimSpace(parts[1])
+					if key == searchKey {
+						return value
+					}
+				}
+			}
+		} else if kvPair, ok := item.(map[string]string); ok {
+			// For ParseSystemInfoStructured format
+			if kvPair["key"] == searchKey {
+				return kvPair["value"]
+			}
+		}
+	}
+	return ""
+}
+
+// ExtractBetween extracts the text between two characters/strings
+// Example: ExtractBetween("Used RAM: 3.2Gi (42.1%)", "(", ")") returns "42.1%"
+func ExtractBetween(str, start, end string) string {
+	// Find the starting position
+	startIdx := strings.Index(str, start)
+	if startIdx == -1 {
+		return "" // Start character not found
+	}
+
+	// Move past the start character
+	startIdx += len(start)
+
+	// Find the ending position after the start
+	endIdx := strings.Index(str[startIdx:], end)
+	if endIdx == -1 {
+		return "" // End character not found
+	}
+
+	// Extract the substring
+	return str[startIdx : startIdx+endIdx]
+}
+
+// increse number by 1
+func IncNumber(i int) int {
+	return i + 1
+}
+
+// ====================================================================== ========================== ======================================================================
+
 // View provides a set of methods (e.g. render()) for rendering purpose.
 func (c *Controller) View(t *template.Template, td *TemplateData, w http.ResponseWriter, r *http.Request) {
 

@@ -193,6 +193,11 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	c.Router.Use(secureHeaders(cfg))
 
 	c.Router.Use(sessionLoad)
+
+	c.Functions = template.FuncMap{}
+	c.Functions["findValue"] = FindValue
+	c.Functions["incNumber"] = IncNumber
+	c.Functions["extractBetween"] = ExtractBetween
 }
 
 // noSurf midleware ... is the CSRF protection middleware
@@ -730,8 +735,11 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 	password := r.Form.Get(Auth.PasswordFieldName)
 
 	if len(username) == 0 || len(password) == 0 {
+		if c.IPRateLimiter != nil {
+			c.IPRateLimiter.RecordFailedAttempt(clientIP)
+		}
 		// Add delay to prevent timing leak
-		time.Sleep(time.Millisecond * time.Duration(200+rand.Intn(100)))
+		time.Sleep(time.Millisecond * time.Duration(300+rand.Intn(200)))
 		InfoMessage("Login failed: missing credentials")
 		if len(Auth.LoginFailMessage) > 0 {
 			Session.Put(r.Context(), "error", Auth.LoginFailMessage)
@@ -857,6 +865,9 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 		Auth.UserData.Values[Auth.UserData.GetFieldIndex(Auth.HashCodeFieldName)] = ""
 		Auth.UserData.Values[Auth.UserData.GetFieldIndex(Auth.PasswordFieldName)] = ""
 
+		// Add small random delay to further prevent timing analysis
+		time.Sleep(time.Millisecond * time.Duration(300+rand.Intn(200)))
+
 		// Redirect on success
 		if len(cOptions.next) > 0 {
 			http.Redirect(w, r, string(cOptions.next), http.StatusSeeOther)
@@ -880,7 +891,7 @@ func (c *Controller) authAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Add small random delay to further prevent timing analysis
-		time.Sleep(time.Millisecond * time.Duration(50+rand.Intn(100)))
+		time.Sleep(time.Millisecond * time.Duration(300+rand.Intn(200)))
 
 		c.viewAction(w, r)
 		return
@@ -925,7 +936,8 @@ func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
 		if c.IPRateLimiter != nil {
 			c.IPRateLimiter.RecordFailedAttempt(clientIP)
 		}
-		time.Sleep(time.Millisecond * time.Duration(200+rand.Intn(100)))
+		// Add delay to prevent timing leak
+		time.Sleep(time.Millisecond * time.Duration(300+rand.Intn(200)))
 		InfoMessage("Linux auth failed: missing credentials from IP: " + clientIP)
 		if len(Auth.LoginFailMessage) > 0 {
 			Session.Put(r.Context(), "error", Auth.LoginFailMessage)
@@ -980,6 +992,9 @@ func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
 		Session.Put(r.Context(), "auth_ip", clientIP)
 		Session.Put(r.Context(), "auth_time", time.Now().UTC().Add(Auth.ExpireAfterIdle))
 
+		// Add small random delay to further prevent timing analysis
+		time.Sleep(time.Millisecond * time.Duration(300+rand.Intn(200)))
+
 		if len(cOptions.next) > 0 {
 			http.Redirect(w, r, string(cOptions.next), http.StatusSeeOther)
 		} else {
@@ -1001,7 +1016,7 @@ func (c *Controller) authActionLinux(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Add small random delay to further prevent timing analysis
-		time.Sleep(time.Millisecond * time.Duration(50+rand.Intn(100)))
+		time.Sleep(time.Millisecond * time.Duration(300+rand.Intn(200)))
 		c.viewAction(w, r)
 	}
 }

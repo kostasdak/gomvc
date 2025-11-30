@@ -81,7 +81,7 @@ func getClientIP(r *http.Request) string {
 	return ip
 }
 
-// authenticateLinuxUser validates against Linux using 'su' command
+// authenticateLinuxUser validates against Linux password
 func authenticateLinuxUser(username, password string) bool {
 	// Validate username format (prevent injection)
 	validUsername := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -95,17 +95,55 @@ func authenticateLinuxUser(username, password string) bool {
 		return false
 	}
 
-	// 5-second timeout
+	if len(password) == 0 {
+		InfoMessage("Empty password")
+		return false
+	}
+
+	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Execute 'su -c exit username'
-	cmd := exec.CommandContext(ctx, "su", "-c", "exit", username)
-	cmd.Stdin = strings.NewReader(password + "\n")
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	// Use Python to verify password against /etc/shadow
+	// Escape single quotes in password for Python
+	escapedPassword := strings.ReplaceAll(password, `\`, `\\`)
+	escapedPassword = strings.ReplaceAll(escapedPassword, `'`, `\'`)
 
+	pythonScript := fmt.Sprintf(`
+import crypt
+import sys
+
+username = '%s'
+password = '%s'
+
+try:
+    with open('/etc/shadow', 'r') as f:
+        for line in f:
+            parts = line.strip().split(':')
+            if len(parts) >= 2 and parts[0] == username:
+                stored_hash = parts[1]
+                
+                # Check if account is disabled
+                if stored_hash in ['', '!', '*', '!!']:
+                    sys.exit(1)
+                
+                # Verify password using crypt
+                if crypt.crypt(password, stored_hash) == stored_hash:
+                    sys.exit(0)
+                else:
+                    sys.exit(1)
+    
+    sys.exit(1)
+    
+except PermissionError:
+    sys.exit(2)
+except Exception:
+    sys.exit(3)
+`, username, escapedPassword)
+
+	cmd := exec.CommandContext(ctx, "python3", "-c", pythonScript)
 	err := cmd.Run()
+
 	return err == nil
 }
 
