@@ -198,6 +198,8 @@ func (c *Controller) Initialize(db *sql.DB, cfg *AppConfig) {
 	c.Functions["findValue"] = FindValue
 	c.Functions["incNumber"] = IncNumber
 	c.Functions["extractBetween"] = ExtractBetween
+	c.Functions["checkValue"] = CheckValue
+	c.Functions["checkExist"] = CheckExist
 }
 
 // noSurf midleware ... is the CSRF protection middleware

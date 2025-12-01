@@ -71,6 +71,68 @@ func ExtractBetween(str, start, end string) string {
 	return str[startIdx : startIdx+endIdx]
 }
 
+// CheckValue searches for a key in section data and returns trueValue if found and matches expected,
+// otherwise returns falseValue
+// Example: CheckValue(data, "Status", "running", "Running", "Stopped")
+func CheckValue(data []interface{}, searchKey, expectedValue, trueValue, falseValue string) string {
+	for _, item := range data {
+		if str, ok := item.(string); ok {
+			// For ParseSystemInfo format: "Status: running"
+			if strings.Contains(str, ":") {
+				parts := strings.SplitN(str, ":", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					value := strings.TrimSpace(parts[1])
+
+					if key == searchKey {
+						// Key found, check if value matches expected
+						if strings.EqualFold(value, expectedValue) {
+							return trueValue
+						}
+						return falseValue
+					}
+				}
+			}
+		} else if kvPair, ok := item.(map[string]string); ok {
+			// For ParseSystemInfoStructured format
+			if kvPair["key"] == searchKey {
+				if strings.EqualFold(kvPair["value"], expectedValue) {
+					return trueValue
+				}
+				return falseValue
+			}
+		}
+	}
+
+	// Key not found at all
+	return falseValue
+}
+
+// CheckExist checks if a search string exists anywhere in the data
+// Returns trueValue if found, falseValue if not found
+// Example: CheckExist(data, "installed", "Yes", "No")
+// Example: CheckExist(data, "running", "Active", "Inactive")
+func CheckExist(data []interface{}, searchString, trueValue, falseValue string) string {
+	searchLower := strings.ToLower(searchString)
+
+	for _, item := range data {
+		if str, ok := item.(string); ok {
+			// Check if the search string exists in this line (case-insensitive)
+			if strings.Contains(strings.ToLower(str), searchLower) {
+				return trueValue
+			}
+		} else if kvPair, ok := item.(map[string]string); ok {
+			// Check in both key and value for structured data
+			if strings.Contains(strings.ToLower(kvPair["key"]), searchLower) ||
+				strings.Contains(strings.ToLower(kvPair["value"]), searchLower) {
+				return trueValue
+			}
+		}
+	}
+
+	return falseValue
+}
+
 // increse number by 1
 func IncNumber(i int) int {
 	return i + 1
