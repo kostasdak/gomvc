@@ -21,6 +21,7 @@ type TemplateData struct {
 	Flash        string
 	Warning      string
 	Error        string
+	PageName     string
 }
 
 // ====================================================================== Template ready functions ======================================================================
@@ -140,6 +141,23 @@ func IncNumber(i int) int {
 
 // ====================================================================== ========================== ======================================================================
 
+// GetPageNameFromRequest extracts the page name from the request URL in order to add it in every page
+func GetPageNameFromRequest(r *http.Request) string {
+	path := r.URL.Path
+
+	// Remove leading and trailing slashes
+	path = strings.Trim(path, "/")
+
+	// Handle root path
+	if path == "" {
+		return "dashboard"
+	}
+
+	// Split path and get first segment
+	segments := strings.Split(path, "/")
+	return segments[0]
+}
+
 // View provides a set of methods (e.g. render()) for rendering purpose.
 func (c *Controller) View(t *template.Template, td *TemplateData, w http.ResponseWriter, r *http.Request) {
 
@@ -186,6 +204,9 @@ func (c *Controller) View(t *template.Template, td *TemplateData, w http.Respons
 			}
 		}
 	}
+
+	/*Add page name in template data object */
+	td.PageName = GetPageNameFromRequest(r)
 
 	/* Execute template */
 	buf := new(bytes.Buffer)

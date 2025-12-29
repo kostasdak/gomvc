@@ -521,10 +521,33 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 		return err
 	}
 
+	// Load partials once
+	parts, err := filepath.Glob("./web/templates/partials/*.tmpl")
+	if err != nil {
+		ServerError(nil, err)
+		log.Fatal()
+		return err
+	}
+
 	for _, page := range pages {
 		name := filepath.Base(page)
-		fmt.Println("Loading page: " + page + " / name index: " + name)
-		ts, err := template.New(name).Funcs(c.Functions).ParseFiles(page)
+		var ts *template.Template
+
+		// Create a list of files to parse for this page
+		filesToParse := []string{page}
+
+		if len(parts) > 0 {
+			filesToParse = append(filesToParse, parts...)
+			fmt.Println("Loading page+parts: " + page + " / name index: " + name)
+			//parts = append(parts, page)
+			//ts, err = template.New(name).Funcs(c.Functions).ParseFiles(parts...)
+		} else {
+			fmt.Println("Loading page: " + page + " / name index: " + name)
+			//ts, err = template.New(name).Funcs(c.Functions).ParseFiles(page)
+		}
+
+		// Parse the page and all partials together
+		ts, err = template.New(name).Funcs(c.Functions).ParseFiles(filesToParse...)
 		if err != nil {
 			err = errors.New("page file not found: " + page + "\n" + err.Error())
 			ServerError(nil, err)
@@ -532,6 +555,7 @@ func (c *Controller) CreateTemplateCache(homePageFileName string, layoutTemplate
 			return err
 		}
 
+		// Parse layout template
 		ts, err = ts.ParseGlob("./web/templates/" + layoutTemplateFileName)
 		if err != nil {
 			err = errors.New("layout file not found: " + page + "\n" + err.Error())
@@ -567,19 +591,54 @@ func (c *Controller) GetTemplate(page string) (*template.Template, error) {
 		return nil, err
 	}
 
-	pagefilename := to.filename
-	t, err := template.New(page).Funcs(c.Functions).ParseFiles(pagefilename)
-	if err != nil {
-		return nil, err
+	//var t *template.Template
+	if c.Config.UseCache {
+		to, ok := c.TemplateCache[page]
+		if !ok {
+			//template not found because link exists but template file not .. this is fatal error
+			err := errors.New("could not get template from template cache")
+			return nil, err
+		}
+		return to.template, nil
+	} else {
+		pagefilename := to.filename
+		//t, err := template.New(page).Funcs(c.Functions).ParseFiles(pagefilename)
+		//if err != nil {
+		//	return nil, err
+		//}
+
+		// Load partials once
+		parts, err := filepath.Glob("./web/templates/partials/*.tmpl")
+		if err != nil {
+			ServerError(nil, err)
+			log.Fatal()
+			return nil, err
+		}
+
+		// Create a list of files to parse for this page
+		filesToParse := []string{pagefilename}
+		if len(parts) > 0 {
+			filesToParse = append(filesToParse, parts...)
+		}
+
+		// Parse the page and all partials together
+		t, err := template.New(page).Funcs(c.Functions).ParseFiles(filesToParse...)
+		if err != nil {
+			err = errors.New("page file not found: " + page + "\n" + err.Error())
+			ServerError(nil, err)
+			log.Fatal()
+			return nil, err
+		}
+
+		// Layout file
+		t, err = t.ParseGlob("./web/templates/" + c.TemplateLayout)
+		if err != nil {
+			return nil, err
+		}
+
+		return t, nil
 	}
 
-	// Layout file
-	t, err = t.ParseGlob("./web/templates/" + c.TemplateLayout)
-	if err != nil {
-		return nil, err
-	}
-
-	return t, nil
 }
 
 // GetFunctions returns the function map from the controller
